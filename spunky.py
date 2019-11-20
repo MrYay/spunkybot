@@ -44,6 +44,7 @@ from lib.pyquake3 import PyQuake3
 from Queue import Queue
 from threading import Thread
 from threading import RLock
+from gunfight import *
 
 
 # Get an instance of a logger
@@ -55,7 +56,7 @@ logger.propagate = False
 BOT_PLAYER_NUM = 1022
 
 # RCON Delay in seconds, recommended range: 0.18 - 0.33
-RCON_DELAY = 0.3
+RCON_DELAY = 0.2
 
 COMMANDS = {'help': {'desc': 'display all available commands', 'syntax': '^7Usage: ^2!help', 'level': 0, 'short': 'h'},
             'forgive': {'desc': 'forgive a player for team killing', 'syntax': '^7Usage: ^2!forgive ^7[<name>]', 'level': 0, 'short': 'f'},
@@ -300,6 +301,7 @@ class LogParser(object):
         self.tdm_gametype = False
         self.bomb_gametype = False
         self.freeze_gametype = False
+        self.gunfight_gametype = False
         self.ts_do_team_balance = False
         self.allow_cmd_teams = True
         self.urt_modversion = None
@@ -311,6 +313,9 @@ class LogParser(object):
         self.last_disconnected_player = None
         self.allow_nextmap_vote = True
         self.default_gear = ''
+        self.round_count = 0
+        self.gunfight_presets = ''
+        self.gunfight_round_loadout = ''
 
         # enable/disable autokick for team killing
         self.tk_autokick = config.getboolean('bot', 'teamkill_autokick') if config.has_option('bot', 'teamkill_autokick') else True
@@ -347,6 +352,12 @@ class LogParser(object):
         self.support_lowgravity = config.getboolean('lowgrav', 'support_lowgravity') if config.has_option('lowgrav', 'support_lowgravity') else False
         self.gravity = config.getint('lowgrav', 'gravity') if config.has_option('lowgrav', 'gravity') else 800
         self.explode_time = "40"
+        # Gameplay mods
+        logger.debug("Checking for GUNFIGHT variable...")
+        if config.has_option('gamemode','gunfight') and config.getboolean('gamemode','gunfight'):
+            logger.debug("GUNFIGHT mode active!")
+            self.gunfight_gametype = True
+            self.gunfight_presets = config.get('gamemode','gunfight_presets') if config.has_option('gamemode','gunfight_presets') else ""
         logger.info("Configuration loaded  : OK")
         # enable/disable option to get Head Admin by checking existence of head admin in database
         curs.execute("SELECT COUNT(*) FROM `xlrstats` WHERE `admin_role` = 100")
@@ -790,6 +801,7 @@ class LogParser(object):
         handle warmup
         """
         logger.debug("Warmup... %s", line)
+        self.round_count = 0
         self.allow_cmd_teams = True
 
     def handle_initround(self, _):
@@ -797,6 +809,7 @@ class LogParser(object):
         handle Init Round
         """
         logger.debug("InitRound: Round started...")
+        self.round_count += 1
         if self.ctf_gametype:
             with self.players_lock:
                 for player in self.game.players.itervalues():
@@ -804,6 +817,12 @@ class LogParser(object):
         elif self.ts_gametype or self.bomb_gametype or self.freeze_gametype:
             if self.allow_cmd_teams_round_end:
                 self.allow_cmd_teams = False
+            if self.gunfight_gametype:
+                logger.debug("InitRound: GUNFIGHT Round started...")
+                logger.debug("InitRound: Round number %d...", self.round_count)
+                forcegear = self.game.get_cvar('sv_forcegear')
+                g_gear = self.game.get_cvar('g_gear')
+                self.game.rcon_bigtext("^2%s" % gunfight_print_loadout(forcegear,g_gear))
 
     def handle_exit(self, line):
         """
@@ -2895,6 +2914,10 @@ class LogParser(object):
             self.handle_team_balance()
             if self.allow_cmd_teams_round_end:
                 self.allow_cmd_teams = False
+        if self.gunfight_gametype:
+            if not self.round_count % 2:
+                gunfight_next_loadout(self)
+                logger.debug("New GUNFIGHT Loadout! [%s]", self.gunfight_round_loadout)
 
     def handle_team_balance(self):
         """
@@ -3723,20 +3746,20 @@ class Game(object):
         self.players = {}
         self.live = False
         self.urt_modversion = urt_modversion
-        game_cfg = ConfigParser.ConfigParser()
-        game_cfg.read(config_file)
-        self.quake = PyQuake3("%s:%s" % (game_cfg.get('server', 'server_ip'), game_cfg.get('server', 'server_port')), game_cfg.get('server', 'rcon_password'))
+        self.game_cfg = ConfigParser.ConfigParser()
+        self.game_cfg.read(config_file)
+        self.quake = PyQuake3("%s:%s" % (self.game_cfg.get('server', 'server_ip'), self.game_cfg.get('server', 'server_port')), self.game_cfg.get('server', 'rcon_password'))
         self.queue = Queue()
         self.rcon_lock = RLock()
         self.thread_rcon()
         logger.info("Opening RCON socket   : OK")
 
         # dynamic mapcycle
-        self.dynamic_mapcycle = game_cfg.getboolean('mapcycle', 'dynamic_mapcycle') if game_cfg.has_option('mapcycle', 'dynamic_mapcycle') else False
+        self.dynamic_mapcycle = self.game_cfg.getboolean('mapcycle', 'dynamic_mapcycle') if self.game_cfg.has_option('mapcycle', 'dynamic_mapcycle') else False
         if self.dynamic_mapcycle:
-            self.switch_count = game_cfg.getint('mapcycle', 'switch_count') if game_cfg.has_option('mapcycle', 'switch_count') else 4
-            self.big_cycle = filter(None, game_cfg.get('mapcycle', 'big_cycle').replace(' ', '').split(',')) if game_cfg.has_option('mapcycle', 'big_cycle') else []
-            self.small_cycle = filter(None, game_cfg.get('mapcycle', 'small_cycle').replace(' ', '').split(',')) if game_cfg.has_option('mapcycle', 'small_cycle') else []
+            self.switch_count = self.game_cfg.getint('mapcycle', 'switch_count') if self.game_cfg.has_option('mapcycle', 'switch_count') else 4
+            self.big_cycle = filter(None, self.game_cfg.get('mapcycle', 'big_cycle').replace(' ', '').split(',')) if self.game_cfg.has_option('mapcycle', 'big_cycle') else []
+            self.small_cycle = filter(None, self.game_cfg.get('mapcycle', 'small_cycle').replace(' ', '').split(',')) if self.game_cfg.has_option('mapcycle', 'small_cycle') else []
 
         # add Spunky Bot as player 'World' to the game
         spunky_bot = Player(BOT_PLAYER_NUM, '127.0.0.1', 'NONE', 'World')
@@ -3956,6 +3979,20 @@ class Game(object):
         logger.info("Total number of maps  : %s", len(self.get_all_maps()))
         logger.info("Server CVAR g_logsync : %s", self.get_cvar('g_logsync'))
         logger.info("Server CVAR g_loghits : %s", self.get_cvar('g_loghits'))
+        #gunfight_gametype
+        if self.game_cfg.has_option('gamemode','gunfight') and self.game_cfg.getboolean('gamemode','gunfight'):
+            logger.debug("GUNFIGHT mode active!")
+            gunfight_presets = self.game_cfg.get('gamemode','gunfight_presets') if self.game_cfg.has_option('gamemode','gunfight_presets') else ""
+            gunfight_round_loadout = gunfight_loadout_generate(gunfight_presets)
+            if gunfight_round_loadout[0:3] == "AAA":
+                gunfight_workaround = gunfight_round_loadout
+                self.send_rcon("set g_gear %s" % g_gear_itemsonly)
+                if gunfight_round_loadout[3] == "O":
+                    gunfight_workaround = "GL" + gunfight_round_loadout[2:]
+                self.send_rcon("set sv_forcegear %s" % gunfight_workaround)
+            else:
+                self.send_rcon("set sv_forcegear %s" % gunfight_round_loadout)
+            logger.debug("GUNFIGHT Loadout init! [%s]", gunfight_round_loadout)
 
     def set_current_map(self):
         """
