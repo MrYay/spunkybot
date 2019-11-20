@@ -775,6 +775,12 @@ class LogParser(object):
         # allow nextmap votes
         self.allow_nextmap_vote = True
 
+        # gunfight_gametype 
+        if self.gunfight_gametype:
+            gunfight_next_loadout(self)
+            logger.debug("new_game: New GUNFIGHT Loadout! [%s]", self.gunfight_round_loadout)
+
+
     def handle_spawn(self, line):
         """
         handle client spawn
@@ -820,9 +826,7 @@ class LogParser(object):
             if self.gunfight_gametype:
                 logger.debug("InitRound: GUNFIGHT Round started...")
                 logger.debug("InitRound: Round number %d...", self.round_count)
-                forcegear = self.game.get_cvar('sv_forcegear')
-                g_gear = self.game.get_cvar('g_gear')
-                self.game.rcon_bigtext("^2%s" % gunfight_print_loadout(forcegear,g_gear))
+                self.game.rcon_bigtext("^2%s" % gunfight_print_loadout(self.gunfight_round_loadout))
 
     def handle_exit(self, line):
         """
@@ -832,6 +836,13 @@ class LogParser(object):
         self.handle_awards()
         self.allow_cmd_teams = True
         self.stats_reset(store_score=True)
+        if self.gunfight_gametype:
+            self.round_count = 0
+            logger.debug("Exit: GUNFIGHT match end...")
+            if self.game.get_cvar('g_gear') != self.default_gear:
+                self.game.send_rcon("set g_gear %s" % self.default_gear)
+            self.game.send_rcon("set sv_forcegear \"\"")
+            
 
     def stats_reset(self, store_score=False):
         """
@@ -2918,6 +2929,7 @@ class LogParser(object):
             if not self.round_count % 2:
                 gunfight_next_loadout(self)
                 logger.debug("New GUNFIGHT Loadout! [%s]", self.gunfight_round_loadout)
+                self.game.rcon_bigtext("^2Loadout changes next round!")
 
     def handle_team_balance(self):
         """
@@ -3979,20 +3991,6 @@ class Game(object):
         logger.info("Total number of maps  : %s", len(self.get_all_maps()))
         logger.info("Server CVAR g_logsync : %s", self.get_cvar('g_logsync'))
         logger.info("Server CVAR g_loghits : %s", self.get_cvar('g_loghits'))
-        #gunfight_gametype
-        if self.game_cfg.has_option('gamemode','gunfight') and self.game_cfg.getboolean('gamemode','gunfight'):
-            logger.debug("GUNFIGHT mode active!")
-            gunfight_presets = self.game_cfg.get('gamemode','gunfight_presets') if self.game_cfg.has_option('gamemode','gunfight_presets') else ""
-            gunfight_round_loadout = gunfight_loadout_generate(gunfight_presets)
-            if gunfight_round_loadout[0:3] == "AAA":
-                gunfight_workaround = gunfight_round_loadout
-                self.send_rcon("set g_gear %s" % g_gear_itemsonly)
-                if gunfight_round_loadout[3] == "O":
-                    gunfight_workaround = "GL" + gunfight_round_loadout[2:]
-                self.send_rcon("set sv_forcegear %s" % gunfight_workaround)
-            else:
-                self.send_rcon("set sv_forcegear %s" % gunfight_round_loadout)
-            logger.debug("GUNFIGHT Loadout init! [%s]", gunfight_round_loadout)
 
     def set_current_map(self):
         """
