@@ -61,7 +61,7 @@ def gunfight_loadout_generate(loadouts=""):
 
         gearstring = list("AAAARWA")
 
-        loadout_type_weights = [0.1,0.1,0.2,0.3,0.3]
+        loadout_type_weights = [0.01,0.04,0.26,0.39,0.3]
 	#loadout_type_weights = [0.4,0.5,0.03,0.03,0.04]
         loadout_type = nchoice(gear_type.keys(),p=loadout_type_weights)
 
@@ -99,10 +99,15 @@ def gunfight_print_loadout(gearstring,g_gear=""):
     return(" ".join(textlist))
 
 def gunfight_next_loadout(spunky):
+    # handling hot restart
+    if g_gear_itemsonly in spunky.game.get_cvar('g_gear'):
+	if g_gear_itemsonly in spunky.default_gear:
+	    spunky.game.send_rcon("set g_gear \"\"")
+	    spunky.default_gear = ""
+
     current_loadout = spunky.gunfight_round_loadout
     while current_loadout == spunky.gunfight_round_loadout:
         spunky.gunfight_round_loadout = gunfight_loadout_generate(spunky.gunfight_presets)
-    spunky.game.rcon_bigtext("^2New Loadout: %s" % gunfight_print_loadout(spunky.gunfight_round_loadout))
     if spunky.gunfight_round_loadout[0:3] == "AAA":
         gunfight_workaround = spunky.gunfight_round_loadout
         spunky.game.send_rcon("set g_gear %s" % g_gear_itemsonly)
@@ -110,7 +115,7 @@ def gunfight_next_loadout(spunky):
             gunfight_workaround = "GL" + spunky.gunfight_round_loadout[2:]
         spunky.game.send_rcon("set sv_forcegear %s" % gunfight_workaround)
     else:
-        if spunky.game.get_cvar('g_gear') == g_gear_itemsonly:
-            spunky.game.send_rcon("set g_gear '%s'" % spunky.default_gear)
+        if g_gear_itemsonly in spunky.game.get_cvar('g_gear'):
+            spunky.game.send_rcon("set g_gear %s" % spunky.default_gear)
         spunky.game.send_rcon("set sv_forcegear %s" % spunky.gunfight_round_loadout)
 
