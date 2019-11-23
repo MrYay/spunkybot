@@ -101,7 +101,7 @@ def gunfight_print_loadout(gearstring,g_gear=""):
 def gunfight_next_loadout(spunky):
     # handling hot restart
     if g_gear_itemsonly in spunky.game.get_cvar('g_gear'):
-	if g_gear_itemsonly in spunky.default_gear:
+	if not g_gear_itemsonly in spunky.default_gear:
 	    spunky.game.send_rcon("set g_gear \"\"")
 	    spunky.default_gear = ""
 
