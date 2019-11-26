@@ -61,8 +61,7 @@ def gunfight_loadout_generate(loadouts=""):
 
         gearstring = list("AAAARWA")
 
-        loadout_type_weights = [0.01,0.04,0.26,0.39,0.3]
-	#loadout_type_weights = [0.4,0.5,0.03,0.03,0.04]
+        loadout_type_weights = [0.005,0.005,0.265,0.39,0.335]
         loadout_type = nchoice(gear_type.keys(),p=loadout_type_weights)
 
         pick_nade = random.randint(0,1)
