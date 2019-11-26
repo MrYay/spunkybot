@@ -3781,6 +3781,10 @@ class Game(object):
         logger.info("Spunky Bot is running until you are closing this session or pressing CTRL + C to abort this process.")
         logger.info("*** Note: Use the provided initscript to run Spunky Bot as daemon ***")
 
+        # gunfight
+        self.gunfight_on = self.game_cfg.has_option('gamemode','gunfight') and self.game_cfg.getboolean('gamemode','gunfight')
+        self.gunfight_presets = self.game_cfg.get('gamemode','gunfight_presets') if self.game_cfg.has_option('gamemode','gunfight_presets') else ""
+
     def thread_rcon(self):
         """
         Thread process for starting method rcon_process
@@ -3991,6 +3995,14 @@ class Game(object):
         logger.info("Total number of maps  : %s", len(self.get_all_maps()))
         logger.info("Server CVAR g_logsync : %s", self.get_cvar('g_logsync'))
         logger.info("Server CVAR g_loghits : %s", self.get_cvar('g_loghits'))
+        # gunfight
+        if self.gunfight_on and self.get_cvar('sv_forcegear') == "":
+            logger.debug("[go_live] GUNFIGHT ENABLED")
+            logger.debug("[go_live] sv_forcegear: %s", self.get_cvar("sv_forcegear"))
+            # at server init
+            self.send_rcon("set sv_forcegear %s" % gunfight_loadout_generate(self.gunfight_presets))
+            logger.debug("[go_live] sv_forcegear set to [%s]", self.get_cvar('sv_forcegear'))
+            
 
     def set_current_map(self):
         """
