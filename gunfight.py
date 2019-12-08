@@ -24,7 +24,7 @@ gear_list = { "F":"Beretta",
             "a":"AK103",
             "c":"Negev",
             "O":"HE",
-            "Q":"Smoke",
+            "Q":"Smokes",
             "R":"Vest",
             "S":"Tac",
             "T":"Medkit",
@@ -34,7 +34,7 @@ gear_list = { "F":"Beretta",
             "X":"Ammo"}
 
 gear_type = collections.OrderedDict(sorted({
-        "grenade":"O",
+        "grenade":"OQ",
         "item":"UV",
         "primary":"KLeMiNZac",
         "secondary":"HjhIJk",
@@ -140,7 +140,7 @@ def gunfight_next_loadout(spunky):
 	    new_g_gear += g_secondary
 	if restrictions == 3:
 		spunky.game.send_rcon("set g_gear %s" % g_gear_itemsonly)
-		if new_loadout[3] == "O":
+		if new_loadout[3] in gear_type["grenade"]:
 		    gunfight_workaround = "GL" + new_loadout[2:]
 	spunky.game.send_rcon("set sv_forcegear %s" % gunfight_workaround)
     else:
