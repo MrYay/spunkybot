@@ -315,7 +315,8 @@ class LogParser(object):
         self.default_gear = ''
         self.round_count = 0
         self.gunfight_presets = ''
-        self.gunfight_round_loadout = ''
+        self.gunfight_loadout = ''
+        self.gunfight_loadout_rounds = 2
 
         # enable/disable autokick for team killing
         self.tk_autokick = config.getboolean('bot', 'teamkill_autokick') if config.has_option('bot', 'teamkill_autokick') else True
@@ -358,6 +359,7 @@ class LogParser(object):
             logger.debug("GUNFIGHT mode active!")
             self.gunfight_gametype = True
             self.gunfight_presets = config.get('gamemode','gunfight_presets') if config.has_option('gamemode','gunfight_presets') else ""
+            self.gunfight_loadout_rounds = config.getint('gamemode','gunfight_loadout_rounds') if config.has_option('gamemode','gunfight_loadout_rounds') else 2
         logger.info("Configuration loaded  : OK")
         # enable/disable option to get Head Admin by checking existence of head admin in database
         curs.execute("SELECT COUNT(*) FROM `xlrstats` WHERE `admin_role` = 100")
@@ -754,6 +756,15 @@ class LogParser(object):
         # reset the player stats
         self.stats_reset()
 
+        # gunfight_gametype 
+        if self.gunfight_gametype:
+            if self.ts_gametype or self.bomb_gametype or self.freeze_gametype:
+                gunfight_next_loadout(self)
+                logger.debug("new_game: New GUNFIGHT Loadout! [%s]", self.gunfight_loadout)
+            else:
+                self.gunfight_gametype = False
+                logger.debug("GUNFIGHT disabled because of unsupported gametype")
+
         # set the current map
         self.game.set_current_map()
         # load all available maps
@@ -775,10 +786,6 @@ class LogParser(object):
         # allow nextmap votes
         self.allow_nextmap_vote = True
 
-        # gunfight_gametype 
-        if self.gunfight_gametype:
-            gunfight_next_loadout(self)
-            logger.debug("new_game: New GUNFIGHT Loadout! [%s]", self.gunfight_round_loadout)
 
 
     def handle_spawn(self, line):
@@ -826,7 +833,7 @@ class LogParser(object):
             if self.gunfight_gametype:
                 logger.debug("InitRound: GUNFIGHT Round started...")
                 logger.debug("InitRound: Round number %d...", self.round_count)
-                self.game.rcon_bigtext("^2%s" % gunfight_print_loadout(self.gunfight_round_loadout))
+                self.game.rcon_bigtext("^2%s" % gunfight_print_loadout(self.gunfight_loadout))
 
     def handle_exit(self, line):
         """
@@ -2926,9 +2933,9 @@ class LogParser(object):
             if self.allow_cmd_teams_round_end:
                 self.allow_cmd_teams = False
         if self.gunfight_gametype:
-            if not self.round_count % 2:
+            if not self.round_count % self.gunfight_loadout_rounds:
                 gunfight_next_loadout(self)
-                logger.debug("New GUNFIGHT Loadout! [%s]", self.gunfight_round_loadout)
+                logger.debug("New GUNFIGHT Loadout! [%s]", self.gunfight_loadout)
                 self.game.rcon_bigtext("^2Loadout changes next round!")
 
     def handle_team_balance(self):
@@ -3996,12 +4003,16 @@ class Game(object):
         logger.info("Server CVAR g_logsync : %s", self.get_cvar('g_logsync'))
         logger.info("Server CVAR g_loghits : %s", self.get_cvar('g_loghits'))
         # gunfight
-        if self.gunfight_on and self.get_cvar('sv_forcegear') == "":
-            logger.debug("[go_live] GUNFIGHT ENABLED")
-            logger.debug("[go_live] sv_forcegear: %s", self.get_cvar("sv_forcegear"))
-            # at server init
-            self.send_rcon("set sv_forcegear %s" % gunfight_loadout_generate(self.gunfight_presets))
-            logger.debug("[go_live] sv_forcegear set to [%s]", self.get_cvar('sv_forcegear'))
+        if self.get_cvar('g_gametype') in ("4","8","10"):
+            if self.gunfight_on and self.get_cvar('sv_forcegear') == "":
+                logger.debug("[go_live] GUNFIGHT ENABLED")
+                logger.debug("[go_live] sv_forcegear: %s", self.get_cvar("sv_forcegear"))
+                # at server init
+                self.send_rcon("set sv_forcegear %s" % gunfight_loadout_generate(self.gunfight_presets))
+                logger.debug("[go_live] sv_forcegear set to [%s]", self.get_cvar('sv_forcegear'))
+        else:
+            logger.debug("GUNFIGHT not initiated because of unsupported gametype")
+            self.gunfight_on = False
             
 
     def set_current_map(self):
