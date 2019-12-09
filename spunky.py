@@ -4005,7 +4005,7 @@ class Game(object):
         logger.info("Server CVAR g_logsync : %s", self.get_cvar('g_logsync'))
         logger.info("Server CVAR g_loghits : %s", self.get_cvar('g_loghits'))
         # gunfight
-        if self.get_cvar('g_gametype') in ("4","8","10"):
+        if self.get_cvar('g_gametype') in ("4","8","10","1"):
             if self.gunfight_on and self.get_cvar('sv_forcegear') == "":
                 logger.debug("[go_live] GUNFIGHT ENABLED")
 		gunfight_init = gunfight_next_loadout("",self.gunfight_presets,self)
