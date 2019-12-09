@@ -759,7 +759,8 @@ class LogParser(object):
         # gunfight_gametype 
         if self.gunfight_gametype:
             if self.ts_gametype or self.bomb_gametype or self.freeze_gametype:
-                gunfight_next_loadout(self)
+	        self.game.send_rcon("set g_gear \"\"")
+                self.gunfight_loadout = gunfight_next_loadout(self.gunfight_loadout, self.gunfight_presets, self.game)
                 logger.debug("new_game: New GUNFIGHT Loadout! [%s]", self.gunfight_loadout)
             else:
                 self.gunfight_gametype = False
@@ -846,8 +847,9 @@ class LogParser(object):
         if self.gunfight_gametype:
             self.round_count = 0
             logger.debug("Exit: GUNFIGHT match end...")
-            if self.game.get_cvar('g_gear') != self.default_gear:
-                self.game.send_rcon("set g_gear %s" % self.default_gear)
+            #if self.game.get_cvar('g_gear') != self.default_gear:
+                #self.game.send_rcon("set g_gear %s" % self.default_gear)
+	    self.game.send_rcon("set g_gear \"\"")
             self.game.send_rcon("set sv_forcegear \"\"")
             
 
@@ -2934,7 +2936,7 @@ class LogParser(object):
                 self.allow_cmd_teams = False
         if self.gunfight_gametype:
             if not self.round_count % self.gunfight_loadout_rounds:
-                gunfight_next_loadout(self)
+                self.gunfight_loadout = gunfight_next_loadout(self.gunfight_loadout, self.gunfight_presets, self.game)
                 logger.debug("New GUNFIGHT Loadout! [%s]", self.gunfight_loadout)
                 self.game.rcon_bigtext("^2Loadout changes next round!")
 
@@ -4006,9 +4008,8 @@ class Game(object):
         if self.get_cvar('g_gametype') in ("4","8","10"):
             if self.gunfight_on and self.get_cvar('sv_forcegear') == "":
                 logger.debug("[go_live] GUNFIGHT ENABLED")
-                logger.debug("[go_live] sv_forcegear: %s", self.get_cvar("sv_forcegear"))
-                # at server init
-                self.send_rcon("set sv_forcegear %s" % gunfight_loadout_generate(self.gunfight_presets))
+		gunfight_init = gunfight_next_loadout("",self.gunfight_presets,self)
+                logger.debug("[go_live] GUNFIGHT INIT: %s", gunfight_init)
                 logger.debug("[go_live] sv_forcegear set to [%s]", self.get_cvar('sv_forcegear'))
         else:
             logger.debug("GUNFIGHT not initiated because of unsupported gametype")
