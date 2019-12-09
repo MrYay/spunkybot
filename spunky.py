@@ -680,7 +680,8 @@ class LogParser(object):
                   'Exit': self.handle_exit, 'say': self.handle_say, 'sayteam': self.handle_say, 'saytell': self.handle_saytell,
                   'ClientUserinfo': self.handle_userinfo, 'ClientUserinfoChanged': self.handle_userinfo_changed,
                   'ClientBegin': self.handle_begin, 'ClientDisconnect': self.handle_disconnect,
-                  'SurvivorWinner': self.handle_teams_ts_mode, 'Kill': self.handle_kill, 'Hit': self.handle_hit,
+                  'SurvivorWinner': self.handle_teams_ts_mode, 'AssassinWinner': self.handle_teams_ftl_mode,
+		  'Kill': self.handle_kill, 'Hit': self.handle_hit,
                   'Freeze': self.handle_freeze, 'ThawOutFinished': self.handle_thawout, 'ClientSpawn': self.handle_spawn,
                   'Flag': self.handle_flag, 'FlagCaptureTime': self.handle_flagcapturetime,
                   'VotePassed': self.handle_vote_passed, 'Callvote': self.handle_callvote}
@@ -2940,6 +2941,24 @@ class LogParser(object):
                 logger.debug("New GUNFIGHT Loadout! [%s]", self.gunfight_loadout)
                 self.game.rcon_bigtext("^2Loadout changes next round!")
 
+    def handle_teams_ftl_mode(self, line):
+        """
+        handle team balance in Follow The Leader mode
+        """
+        logger.debug("AssassinWinner: %s", line)
+        self.game.send_rcon("%s%s ^7team wins" % ('^1' if line == 'Red' else '^4', line) if 'Draw' not in line else "^7Draw")
+        self.autobalancer()
+        if self.ts_do_team_balance:
+            self.allow_cmd_teams = True
+            self.handle_team_balance()
+            if self.allow_cmd_teams_round_end:
+                self.allow_cmd_teams = False
+        if self.gunfight_gametype:
+            if not self.round_count % self.gunfight_loadout_rounds:
+                self.gunfight_loadout = gunfight_next_loadout(self.gunfight_loadout, self.gunfight_presets, self.game)
+                logger.debug("New GUNFIGHT Loadout! [%s]", self.gunfight_loadout)
+                self.game.rcon_bigtext("^2Loadout changes next round!")
+
     def handle_team_balance(self):
         """
         balance teams if needed
@@ -4005,7 +4024,7 @@ class Game(object):
         logger.info("Server CVAR g_logsync : %s", self.get_cvar('g_logsync'))
         logger.info("Server CVAR g_loghits : %s", self.get_cvar('g_loghits'))
         # gunfight
-        if self.get_cvar('g_gametype') in ("4","8","10","1"):
+        if self.get_cvar('g_gametype') in ("4","8","10","1","5"):
             if self.gunfight_on and self.get_cvar('sv_forcegear') == "":
                 logger.debug("[go_live] GUNFIGHT ENABLED")
 		gunfight_init = gunfight_next_loadout("",self.gunfight_presets,self)
