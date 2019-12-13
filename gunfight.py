@@ -51,10 +51,10 @@ def gunfight_can_use_silencer(loadout):
             return True
     return False
 
-def gunfight_loadout_generate(loadouts=""):
+def gunfight_loadout_generate(loadouts=[]):
 
-        if loadouts != "":
-            return random.choice(loadouts.split(','))
+        if loadouts != []:
+            return random.choice(loadouts)
 
         gearstring = list("AAAARWA")
 
@@ -115,9 +115,9 @@ def gunfight_next_loadout(current, presets, rcon):
     g_primary = gear_type["primary"]
     g_secondary = gear_type["secondary"]
 
-    new_loadout = current
-    while current == new_loadout:
-        new_loadout = gunfight_loadout_generate(presets)
+    new_loadout = gunfight_loadout_generate(presets)
+    while current == new_loadout and not len(presets) == 1:
+	    new_loadout = gunfight_loadout_generate(presets)
     og_loadout = new_loadout
     new_g_gear = ""
     if new_loadout[1] == 'A':
