@@ -282,7 +282,9 @@ class LogParser(object):
 
         # devel.log file
         devel_log = logging.handlers.RotatingFileHandler(filename='devel.log', maxBytes=2097152, backupCount=1, encoding='utf8')
-        devel_log.setLevel(logging.INFO)
+	devel_log.setLevel(logging.INFO)
+        if verbose:
+		devel_log.setLevel(logging.DEBUG)
         devel_log.setFormatter(formatter)
 
         # add logging handler
@@ -314,10 +316,11 @@ class LogParser(object):
         self.allow_nextmap_vote = True
         self.default_gear = ''
         self.round_count = 0
-        self.gunfight_presets = ''
+        self.gunfight_presets = []
         self.gunfight_loadout = ''
         self.gunfight_loadout_rounds = 2
         self.gunfight_swapped_roles = True
+        self.gunfight_maxrounds = 0
 
         # enable/disable autokick for team killing
         self.tk_autokick = config.getboolean('bot', 'teamkill_autokick') if config.has_option('bot', 'teamkill_autokick') else True
@@ -359,7 +362,8 @@ class LogParser(object):
         if config.has_option('gamemode','gunfight') and config.getboolean('gamemode','gunfight'):
             logger.debug("GUNFIGHT mode active!")
             self.gunfight_gametype = True
-            self.gunfight_presets = config.get('gamemode','gunfight_presets') if config.has_option('gamemode','gunfight_presets') else ""
+	    gunfight_presets_string = config.get('gamemode','gunfight_presets') if config.has_option('gamemode','gunfight_presets') else ""
+	    self.gunfight_presets = filter(lambda s: s is not '', gunfight_presets_string.split(','))
             self.gunfight_loadout_rounds = config.getint('gamemode','gunfight_loadout_rounds') if config.has_option('gamemode','gunfight_loadout_rounds') else 2
         logger.info("Configuration loaded  : OK")
         # enable/disable option to get Head Admin by checking existence of head admin in database
@@ -761,6 +765,7 @@ class LogParser(object):
         # gunfight_gametype 
         if self.gunfight_gametype:
             self.gunfight_swapped_roles = False if 'g_swaproles\\1\\' in line else True
+	    self.gunfight_maxrounds = self.game.get_cvar('g_maxrounds')
             if self.ts_gametype or self.bomb_gametype or self.freeze_gametype:
 	        self.game.send_rcon("set g_gear \"\"")
                 self.gunfight_loadout = gunfight_next_loadout(self.gunfight_loadout, self.gunfight_presets, self.game)
@@ -2941,7 +2946,7 @@ class LogParser(object):
             if self.allow_cmd_teams_round_end:
                 self.allow_cmd_teams = False
         if self.gunfight_gametype:
-            if not self.round_count % self.gunfight_loadout_rounds:
+            if (not self.round_count % self.gunfight_loadout_rounds) or (not self.gunfight_swapped_roles and self.round_count == self.gunfight_maxrounds):
                 self.gunfight_loadout = gunfight_next_loadout(self.gunfight_loadout, self.gunfight_presets, self.game)
                 logger.debug("New GUNFIGHT Loadout! [%s]", self.gunfight_loadout)
                 self.game.rcon_bigtext("^2Loadout changes next round!")
@@ -2959,7 +2964,7 @@ class LogParser(object):
             if self.allow_cmd_teams_round_end:
                 self.allow_cmd_teams = False
         if self.gunfight_gametype:
-            if not self.round_count % self.gunfight_loadout_rounds:
+            if (not self.round_count % self.gunfight_loadout_rounds) or (not self.gunfight_swapped_roles and self.round_count == self.gunfight_maxrounds):
                 self.gunfight_loadout = gunfight_next_loadout(self.gunfight_loadout, self.gunfight_presets, self.game)
                 logger.debug("New GUNFIGHT Loadout! [%s]", self.gunfight_loadout)
                 self.game.rcon_bigtext("^2Loadout changes next round!")
@@ -3816,7 +3821,8 @@ class Game(object):
 
         # gunfight
         self.gunfight_on = self.game_cfg.has_option('gamemode','gunfight') and self.game_cfg.getboolean('gamemode','gunfight')
-        self.gunfight_presets = self.game_cfg.get('gamemode','gunfight_presets') if self.game_cfg.has_option('gamemode','gunfight_presets') else ""
+        gunfight_presets_string = self.game_cfg.get('gamemode','gunfight_presets') if self.game_cfg.has_option('gamemode','gunfight_presets') else ""
+	self.gunfight_presets = list(set(filter(lambda s: s is not '', gunfight_presets_string.split(','))))
 
     def thread_rcon(self):
         """
