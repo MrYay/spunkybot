@@ -317,6 +317,7 @@ class LogParser(object):
         self.gunfight_presets = ''
         self.gunfight_loadout = ''
         self.gunfight_loadout_rounds = 2
+        self.gunfight_swapped_roles = True
 
         # enable/disable autokick for team killing
         self.tk_autokick = config.getboolean('bot', 'teamkill_autokick') if config.has_option('bot', 'teamkill_autokick') else True
@@ -759,6 +760,7 @@ class LogParser(object):
 
         # gunfight_gametype 
         if self.gunfight_gametype:
+            self.gunfight_swapped_roles = False if 'g_swaproles\\1\\' in line else True
             if self.ts_gametype or self.bomb_gametype or self.freeze_gametype:
 	        self.game.send_rcon("set g_gear \"\"")
                 self.gunfight_loadout = gunfight_next_loadout(self.gunfight_loadout, self.gunfight_presets, self.game)
@@ -850,8 +852,11 @@ class LogParser(object):
             logger.debug("Exit: GUNFIGHT match end...")
             #if self.game.get_cvar('g_gear') != self.default_gear:
                 #self.game.send_rcon("set g_gear %s" % self.default_gear)
-	    self.game.send_rcon("set g_gear \"\"")
-            self.game.send_rcon("set sv_forcegear \"\"")
+	    if self.gunfight_swapped_roles:
+	        self.game.send_rcon("set g_gear \"\"")
+                self.game.send_rcon("set sv_forcegear \"\"")
+	    if self.game.get_cvar('g_swaproles') == '1':
+	        self.gunfight_swapped_roles = not self.gunfight_swapped_roles
             
 
     def stats_reset(self, store_score=False):
