@@ -72,7 +72,7 @@ def gunfight_loadout_generate(loadouts=[]):
     
     if not(random.randint(1,100) <= p_knife*100):
         #not knife only
-        pick = random.choice([0]*(int)(p_MSP*1000) + [1]*(int)(p_MS*1000) + [2]*(int)(p_MP*1000) + [3]*(int)(p_M*1000) + [4]*(int)(p_SP*1000) + [5]*(int)(p_S*1000) + [6]*(int)(p_P*1000))
+        pick = random.choice([0]*(int)(p_MSP*100) + [1]*(int)(p_MS*100) + [2]*(int)(p_MP*100) + [3]*(int)(p_M*100) + [4]*(int)(p_SP*100) + [5]*(int)(p_S*100) + [6]*(int)(p_P*100))
         if (pick == 0): #main, secondary, pistol
             gearstring[0] = random.choice(gear_type["sidearm"])
             gearstring[1] = random.choice(gear_type["primary"])
