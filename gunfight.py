@@ -1,6 +1,5 @@
 import random
 import collections
-from scipy.optimize import fsolve
 
 gear_list = { "F":"Beretta",
             "f":"Glock",
@@ -59,8 +58,7 @@ def gunfight_loadout_generate(loadouts=[]):
     
     gearstring = list("AAAARWA")
     
-    N = 15 #number of rounds
-    E_knife = 1.5 #desired avg numbers of knife only per map
+    p_knife = 0.05
     
     p_MSP = 0.33/4
     p_MS = 0.33/4
@@ -71,11 +69,6 @@ def gunfight_loadout_generate(loadouts=[]):
     p_P = 0.33
     
     p_nades = 0.5
-    
-    def f(x, N, E):
-        return x*N*(x+1)**(N-1) - E
-    
-    p_knife = fsolve(f, 0.5, args=(N, E_knife))[0]
     
     if not(random.randint(1,100) <= p_knife*100):
         #not knife only
