@@ -1,5 +1,6 @@
 import random
 import collections
+from scipy.optimize import fsolve
 
 gear_list = { "F":"Beretta",
             "f":"Glock",
