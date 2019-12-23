@@ -25,7 +25,7 @@ class VirtuaGame:
     self.g_gear = g_gear
     self.sv_forcegear = sv_forcegear
     self.gunfight_loadout = sv_forcegear
-    self.gunfight_presets = ""
+    self.gunfight_presets = []
     self.default_gear = ""
     self.roundcount = 0
     self.game = Server(g_gear,sv_forcegear)
@@ -36,7 +36,7 @@ class VirtuaGame:
 
   def Launch(self):
     self.Start()
-    gunfight_next_loadout(self)
+    gunfight_next_loadout(self.gunfight_loadout, self.gunfight_presets, self.game)
     while self.roundcount != self.maxrounds:
         self.Round()
     self.End()
@@ -69,7 +69,7 @@ class VirtuaGame:
     print("----")
     if not self.roundcount % 2:
       print "[Round %d] LOADOUT CHANGE!" % self.roundcount
-      gunfight_next_loadout(self)
+      gunfight_next_loadout(self.gunfight_loadout, self.gunfight_presets, self.game)
     #print("Round {} ended".format(self.roundcount))
 
   def End(self):
