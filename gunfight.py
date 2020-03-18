@@ -55,20 +55,20 @@ def gunfight_loadout_is_full(loadout):
 	items = loadout[-3:]
 	weapons = loadout[:4]
 
-	item_count = len(items) - items.count('A') 
+	item_count = len(items) - items.count('A')
 	weapons_count = len(weapons) - weapons.count('A')
 
 	return (item_count + weapons_count >= 5)
-		
+
 def gunfight_loadout_generate(loadouts=[]):
 
     if loadouts != []:
         return random.choice(loadouts)
-    
+
     gearstring = list("AAAARWA")
-    
+
     p_knife = 0.05
-    
+
     p_PSP = 0/4
     p_PS = 0.33/4
     p_PPs = 0.33/4
@@ -76,17 +76,17 @@ def gunfight_loadout_generate(loadouts=[]):
     p_SPs = 0.33/2
     p_SO = 0.33/2
     p_PsO = 0.33
-    
+
     primary_secondary_pistol = 0
     primary_secondary = 1
     primary_pistol = 2
     primary_only = 3
     secondary_pistol = 4
-    secondary_only = 5 
+    secondary_only = 5
     pistol_only = 6
 
     p_nades = 0.5
-    
+
     pick = -1
     if not(random.randint(1,100) <= p_knife*100):
         #not knife only
@@ -121,12 +121,12 @@ def gunfight_loadout_generate(loadouts=[]):
         elif (pick == secondary_only):
             gearstring[2] = random.choice(gear_type["secondary"])
         # else: #(pick == pistol_only)
-        #    gearstring[0] = random.choice(gear_type["sidearm"])       
-    
+        #    gearstring[0] = random.choice(gear_type["sidearm"])
+
     #Refactor later
     if not(pick == primary_secondary_pistol or pick == primary_secondary):
         if (pick == primary_pistol or pick == secondary_pistol): #generated 2 weapons
-            if random.randint(0,1): 
+            if random.randint(0,1):
                 if (random.randint(1,100) <= p_nades*100):
                     gearstring[3] = random.choice(['O']*80 + ['Q']*20) # 80% chance for HE
             elif not gunfight_loadout_is_full(gearstring):
@@ -152,7 +152,7 @@ def gunfight_loadout_generate(loadouts=[]):
                 else:
                     if random.randint(0,1):
                         gearstring[6] = 'V'
-        
+
     return("".join(gearstring))
 
 def gunfight_print_loadout(gearstring,g_gear=""):
