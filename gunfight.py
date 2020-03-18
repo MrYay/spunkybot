@@ -101,8 +101,8 @@ def gunfight_loadout_generate(loadouts=[]):
             gearstring[0] = random.choice(gear_type["sidearm"])       
     
     #Refactor later
-    if not(pick == 0):
-        if (pick == 1 or pick == 2 or pick == 4): #generated 2 weapons
+    if not(pick == 0 or pick == 1):
+        if (pick == 2 or pick == 4): #generated 2 weapons
             if random.randint(0,1): 
                 if (random.randint(1,100) <= p_nades*100):
                     gearstring[3] = random.choice(['O']*80 + ['Q']*20) # 80% chance for HE
