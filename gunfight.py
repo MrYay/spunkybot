@@ -55,11 +55,11 @@ def gunfight_loadout_generate(loadouts=[]):
 
     if loadouts != []:
         return random.choice(loadouts)
-    
+
     gearstring = list("AAAARWA")
-    
+
     p_knife = 0.05
-    
+
     p_MSP = 0.33/4 #pick 0
     p_MS = 0.33/4 #pick 1
     p_MP = 0.33/4 #pick 2
@@ -67,13 +67,15 @@ def gunfight_loadout_generate(loadouts=[]):
     p_SP = 0.33/2 #pick 4
     p_S = 0.33/2 #pick 5
     p_P = 0.33 #pick 6
-    
+
     p_nades = 0.5
-    
+
     pick = -1
-    if not(random.randint(1,100) <= p_knife*100):
-        #not knife only
-        pick = random.choice([0]*(int)(p_MSP*100) + [1]*(int)(p_MS*100) + [2]*(int)(p_MP*100) + [3]*(int)(p_M*100) + [4]*(int)(p_SP*100) + [5]*(int)(p_S*100) + [6]*(int)(p_P*100))
+    if not(random.randint(1,100) <= p_knife*100): #not knife only
+        try:
+            pick = random.choice([0]*(int)(p_MSP*100) + [1]*(int)(p_MS*100) + [2]*(int)(p_MP*100) + [3]*(int)(p_M*100) + [4]*(int)(p_SP*100) + [5]*(int)(p_S*100) + [6]*(int)(p_P*100))
+        except: #default values
+            pick = random.choice([0]*(int)(.33/4*100) + [1]*(int)(.33/4*100) + [2]*(int)(.33/4*100) + [3]*(int)(.33/4*100) + [4]*(int)(.33/2*100) + [5]*(int)(.33/2*100) + [6]*(int)(.33*100))
         if (pick == 0): #main, secondary, pistol
             gearstring[0] = random.choice(gear_type["sidearm"])
             gearstring[1] = random.choice(gear_type["primary"])
@@ -98,12 +100,12 @@ def gunfight_loadout_generate(loadouts=[]):
         elif (pick == 5): # secondary
             gearstring[2] = random.choice(gear_type["secondary"])
         else: #(pick == 6) # pistol
-            gearstring[0] = random.choice(gear_type["sidearm"])       
-    
+            gearstring[0] = random.choice(gear_type["sidearm"])
+
     #Refactor later
     if not(pick == 0 or pick == 1):
         if (pick == 2 or pick == 4): #generated 2 weapons
-            if random.randint(0,1): 
+            if random.randint(0,1):
                 if (random.randint(1,100) <= p_nades*100):
                     gearstring[3] = random.choice(['O']*80 + ['Q']*20) # 80% chance for HE
             else:
@@ -129,7 +131,7 @@ def gunfight_loadout_generate(loadouts=[]):
                 else:
                     if random.randint(0,1):
                         gearstring[6] = 'V'
-        
+
     return("".join(gearstring))
 
 def gunfight_print_loadout(gearstring,g_gear=""):
