@@ -51,6 +51,15 @@ def gunfight_can_use_silencer(loadout):
             return True
     return False
 
+def gunfight_loadout_is_full(loadout):
+	items = loadout[-3:]
+	weapons = loadout[:4]
+
+	item_count = len(items) - items.count('A') 
+	weapons_count = len(weapons) - weapons.count('A')
+
+	return (item_count + weapons_count >= 5)
+		
 def gunfight_loadout_generate(loadouts=[]):
 
     if loadouts != []:
@@ -60,53 +69,67 @@ def gunfight_loadout_generate(loadouts=[]):
     
     p_knife = 0.05
     
-    p_MSP = 0.33/4 #pick 0
-    p_MS = 0.33/4 #pick 1
-    p_MP = 0.33/4 #pick 2
-    p_M = 0.33/4 #pick 3
-    p_SP = 0.33/2 #pick 4
-    p_S = 0.33/2 #pick 5
-    p_P = 0.33 #pick 6
+    p_PSP = 0/4
+    p_PS = 0.33/4
+    p_PPs = 0.33/4
+    p_PO = 0.33/4
+    p_SPs = 0.33/2
+    p_SO = 0.33/2
+    p_PsO = 0.33
     
+    primary_secondary_pistol = 0
+    primary_secondary = 1
+    primary_pistol = 2
+    primary_only = 3
+    secondary_pistol = 4
+    secondary_only = 5 
+    pistol_only = 6
+
     p_nades = 0.5
     
     pick = -1
     if not(random.randint(1,100) <= p_knife*100):
         #not knife only
-        pick = random.choice([0]*(int)(p_MSP*100) + [1]*(int)(p_MS*100) + [2]*(int)(p_MP*100) + [3]*(int)(p_M*100) + [4]*(int)(p_SP*100) + [5]*(int)(p_S*100) + [6]*(int)(p_P*100))
-        if (pick == 0): #main, secondary, pistol
-            gearstring[0] = random.choice(gear_type["sidearm"])
+        pick = random.choice(
+		  [primary_secondary_pistol] *(int)(p_PSP*100) \
+		+ [primary_secondary]	     *(int)(p_PS*100) \
+		+ [primary_pistol]           *(int)(p_PPs*100) \
+		+ [primary_only]             *(int)(p_PO*100) \
+		+ [secondary_pistol]         *(int)(p_SPs*100) \
+		+ [secondary_only]           *(int)(p_SO*100) \
+		+ [pistol_only]              *(int)(p_PsO*100)
+	)
+	gearstring[0] = random.choice(gear_type["sidearm"])
+        if (pick == primary_secondary_pistol):
             gearstring[1] = random.choice(gear_type["primary"])
             while (gearstring[1] == 'c'): # no negev
                 gearstring[1] = random.choice(gear_type["primary"])
             gearstring[2] = random.choice(gear_type["secondary"])
             while gearstring[2] == gearstring[1]:
                 gearstring[2] = random.choice(gear_type["secondary"])
-        elif (pick == 1): #main, secondary
+        elif (pick == primary_secondary):
             gearstring[1] = random.choice(gear_type["primary"])
-            while (gearstring[1] == 'c'): # no negev
+            while (gearstring[1] == 'c'):
                 gearstring[1] = random.choice(gear_type["primary"])
             gearstring[2] = random.choice(gear_type["secondary"])
-        elif (pick == 2): # main, pistol
-            gearstring[0] = random.choice(gear_type["sidearm"])
+        elif (pick == primary_pistol):
             gearstring[1] = random.choice(gear_type["primary"])
-        elif (pick == 3): # main
+        elif (pick == primary_only):
             gearstring[1] = random.choice(gear_type["primary"])
-        elif (pick == 4): #secondary, pistol
-            gearstring[0] = random.choice(gear_type["sidearm"])
+        elif (pick == secondary_pistol):
             gearstring[2] = random.choice(gear_type["secondary"])
-        elif (pick == 5): # secondary
+        elif (pick == secondary_only):
             gearstring[2] = random.choice(gear_type["secondary"])
-        else: #(pick == 6) # pistol
-            gearstring[0] = random.choice(gear_type["sidearm"])       
+        # else: #(pick == pistol_only)
+        #    gearstring[0] = random.choice(gear_type["sidearm"])       
     
     #Refactor later
-    if not(pick == 0 or pick == 1):
-        if (pick == 2 or pick == 4): #generated 2 weapons
+    if not(pick == primary_secondary_pistol or pick == primary_secondary):
+        if (pick == primary_pistol or pick == secondary_pistol): #generated 2 weapons
             if random.randint(0,1): 
                 if (random.randint(1,100) <= p_nades*100):
                     gearstring[3] = random.choice(['O']*80 + ['Q']*20) # 80% chance for HE
-            else:
+            elif not gunfight_loadout_is_full(gearstring):
                 if (gunfight_can_use_laser(gearstring)):
                     if (gunfight_can_use_silencer(gearstring)):
                         if random.randint(0,1):
@@ -115,12 +138,12 @@ def gunfight_loadout_generate(loadouts=[]):
                         gearstring[6] = 'V' #laser
                 else:
                     if random.randint(0,1):
-                        gearstring[6] = 'V'
-        else: #pick == 3 or pick == 5 or pick == 6 ; generated 1 weaponm
+                        gearstring[6] = 'U'
+        else: #pick == primary_only or secondary_only or pistol_only ; generated 1 weapon
             if (random.randint(1,100) <= p_nades*100):
                 gearstring[3] = random.choice(['O']*80 + ['Q']*20) # 80% chance for HE
 
-            if (gunfight_can_use_laser(gearstring)):
+            if (gunfight_can_use_laser(gearstring) and not gunfight_loadout_is_full(gearstring)):
                 if (gunfight_can_use_silencer(gearstring)):
                     if random.randint(0,1):
                         gearstring[6] = 'U' #silencer
