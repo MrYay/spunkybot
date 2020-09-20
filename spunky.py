@@ -111,6 +111,12 @@ class LogParser(object):
         self.game = None
         self.default_gear = ''
         self.round_count = 0
+	self.blue_score = 0
+	self.red_score = 0
+	self.fraglimit = 0
+	self.use_match_point = True
+	self.match_point = False
+        self.gunfight_old_maxrounds = 0
         self.gunfight_presets = []
         self.gunfight_loadout = ''
         self.gunfight_loadout_rounds = 2
@@ -118,6 +124,9 @@ class LogParser(object):
         self.gunfight_maxrounds = 0
 
         # Gameplay mods
+        if config.has_option('gamemode','use_match_point') and config.getboolean('gamemode','use_match_point'):
+            logger.debug("Using Match Point!")
+            self.use_match_point = True
         logger.debug("Checking for GUNFIGHT variable...")
         if config.has_option('gamemode','gunfight') and config.getboolean('gamemode','gunfight'):
             logger.debug("GUNFIGHT mode active!")
@@ -182,7 +191,10 @@ class LogParser(object):
                     # get default g_gear value
                     self.default_gear = line.split('g_gear\\')[-1].split('\\')[0] if 'g_gear\\' in line else "%s" % '' if self.urt_modversion > 41 else '0'
 
+                    # get default fraglimit value
+                    self.fraglimit = line.split('fraglimit\\')[-1].split('\\')[0] if 'fraglimit\\' in line else "%s" % '' if self.urt_modversion > 41 else '0'
                 if self.log_file.tell() > end_pos:
+
                     break
                 elif not line:
                     break
@@ -251,9 +263,9 @@ class LogParser(object):
         self.game.rcon_clear()
 
         # gunfight_gametype 
+        self.gunfight_maxrounds = int(self.game.get_cvar('g_maxrounds'))
         if self.gunfight_gametype:
             self.gunfight_swapped_roles = False if 'g_swaproles\\1\\' in line else True
-	    self.gunfight_maxrounds = self.game.get_cvar('g_maxrounds')
             if self.ts_gametype or self.bomb_gametype or self.freeze_gametype:
 	        self.game.send_rcon("set g_gear \"\"")
                 self.gunfight_loadout = gunfight_next_loadout(self.gunfight_loadout, self.gunfight_presets, self.game)
@@ -267,6 +279,7 @@ class LogParser(object):
         handle warmup
         """
         logger.debug("Warmup... %s", line)
+	self.match_point = False
         self.round_count = 0
 
     def handle_initround(self, _):
@@ -278,6 +291,8 @@ class LogParser(object):
         if self.gunfight_gametype:
             logger.debug("InitRound: GUNFIGHT Round started...")
             logger.debug("InitRound: Round number %d...", self.round_count)
+	    if self.use_match_point and self.match_point:
+		    logger.debug("MATCH POINT!")
             self.game.rcon_bigtext("^2%s" % gunfight_print_loadout(self.gunfight_loadout))
 
     def handle_exit(self, line):
@@ -285,9 +300,14 @@ class LogParser(object):
         handle Exit of a match, show Awards, store user score in database and reset statistics
         """
         logger.debug("Exit: %s", line)
+	self.blue_score = 0
+	self.red_score = 0
+    	self.round_count = 0
         if self.gunfight_gametype:
-            self.round_count = 0
             logger.debug("Exit: GUNFIGHT match end...")
+ 	    if self.use_match_point and self.match_point:
+		self.match_point = False
+		self.game.send_rcon("fraglimit %s" % str(self.fraglimit))
             #if self.game.get_cvar('g_gear') != self.default_gear:
                 #self.game.send_rcon("set g_gear %s" % self.default_gear)
 	    if self.gunfight_swapped_roles:
@@ -296,12 +316,29 @@ class LogParser(object):
 	    if self.game.get_cvar('g_swaproles') == '1':
 	        self.gunfight_swapped_roles = not self.gunfight_swapped_roles
 
+    def check_match_point(self):
+	"""
+	setup matchpoint if enabled
+	"""
+	rcon_players = self.game.get_rcon_output('players')
+	teams_scores = rcon_players[1].split('\n')[3].split(' ')[-2:]
+	half_point = self.gunfight_maxrounds/2
+	self.blue_score = int(teams_scores[1].split(':')[1])
+	self.red_score = int(teams_scores[0].split(':')[1])
+	if ((self.blue_score+1 > half_point) or \
+	   (self.red_score+1 > half_point)) and not self.match_point:
+		self.match_point = True
+	if self.match_point and (self.blue_score > half_point or self.red_score > half_point):
+		self.game.send_rcon("fraglimit %s" % str(half_point))	
+
     def handle_teams_ts_mode(self, line):
         """
         handle team balance in Team Survivor mode
         """
         logger.debug("SurvivorWinner: %s", line)
         self.game.send_rcon("%s%s ^7team wins" % ('^1' if line == 'Red' else '^4', line) if 'Draw' not in line else "^7Draw")
+	if self.use_match_point:
+		self.check_match_point()
         if self.gunfight_gametype:
             if (not self.round_count % self.gunfight_loadout_rounds) or (not self.gunfight_swapped_roles and self.round_count == self.gunfight_maxrounds):
                 self.gunfight_loadout = gunfight_next_loadout(self.gunfight_loadout, self.gunfight_presets, self.game)
@@ -314,6 +351,8 @@ class LogParser(object):
         """
         logger.debug("AssassinWinner: %s", line)
         self.game.send_rcon("%s%s ^7team wins" % ('^1' if line == 'Red' else '^4', line) if 'Draw' not in line else "^7Draw")
+	if self.use_match_point:
+		self.check_match_point()
         if self.gunfight_gametype:
             if (not self.round_count % self.gunfight_loadout_rounds) or (not self.gunfight_swapped_roles and self.round_count == self.gunfight_maxrounds):
                 self.gunfight_loadout = gunfight_next_loadout(self.gunfight_loadout, self.gunfight_presets, self.game)
