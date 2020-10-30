@@ -52,14 +52,16 @@ def gunfight_can_use_silencer(loadout):
     return False
 
 def gunfight_loadout_is_full(loadout):
-	items = loadout[-3:]
-	weapons = loadout[:4]
+    # consider pistol slot is always occupied 
+    max_weight = 4
+    weight = 0
 
-	item_count = len(items) - items.count('A')
-	weapons_count = len(weapons) - weapons.count('A')
-
-	return (item_count + weapons_count >= 5)
-
+    for slot in loadout[1:]:
+        if slot == 'A':
+            continue
+        weight += 2 if slot == 'c' else 1
+    return (weight >= max_weight)
+		
 def gunfight_loadout_generate(loadouts=[]):
 
     if loadouts != []:
@@ -67,31 +69,30 @@ def gunfight_loadout_generate(loadouts=[]):
 
     gearstring = list("AAAARWA")
 
-    p_knife = 0.05
-
-    p_PSP = 0/4
-    p_PS = 0.33/4
-    p_PPs = 0.33/4
-    p_PO = 0.33/4
-    p_SPs = 0.33/2
-    p_SO = 0.33/2
-    p_PsO = 0.33
-
+    p_knife = 0.03
+    p_nades = 0.2
+    
+    p_PSPs = 0.11
+    p_PS = 0.11
+    p_PPs = 0.11
+    p_PO = 0.11
+    p_SPs = 0.11
+    p_SO = 0.11
+    p_PsO = 0.11
+    
     primary_secondary_pistol = 0
     primary_secondary = 1
     primary_pistol = 2
     primary_only = 3
     secondary_pistol = 4
-    secondary_only = 5
+    secondary_only = 5 
     pistol_only = 6
-
-    p_nades = 0.5
-
     pick = -1
+
     if not(random.randint(1,100) <= p_knife*100):
         #not knife only
         pick = random.choice(
-		  [primary_secondary_pistol] *(int)(p_PSP*100) \
+		  [primary_secondary_pistol] *(int)(p_PSPs*100) \
 		+ [primary_secondary]	     *(int)(p_PS*100) \
 		+ [primary_pistol]           *(int)(p_PPs*100) \
 		+ [primary_only]             *(int)(p_PO*100) \
@@ -99,59 +100,37 @@ def gunfight_loadout_generate(loadouts=[]):
 		+ [secondary_only]           *(int)(p_SO*100) \
 		+ [pistol_only]              *(int)(p_PsO*100)
 	)
-	gearstring[0] = random.choice(gear_type["sidearm"])
-        if (pick == primary_secondary_pistol):
-            gearstring[1] = random.choice(gear_type["primary"])
-            while (gearstring[1] == 'c'): # no negev
-                gearstring[1] = random.choice(gear_type["primary"])
-            gearstring[2] = random.choice(gear_type["secondary"])
-            while gearstring[2] == gearstring[1]:
-                gearstring[2] = random.choice(gear_type["secondary"])
-        elif (pick == primary_secondary):
-            gearstring[1] = random.choice(gear_type["primary"])
-            while (gearstring[1] == 'c'):
-                gearstring[1] = random.choice(gear_type["primary"])
-            gearstring[2] = random.choice(gear_type["secondary"])
-        elif (pick == primary_pistol):
-            gearstring[1] = random.choice(gear_type["primary"])
-        elif (pick == primary_only):
-            gearstring[1] = random.choice(gear_type["primary"])
-        elif (pick == secondary_pistol):
-            gearstring[2] = random.choice(gear_type["secondary"])
-        elif (pick == secondary_only):
-            gearstring[2] = random.choice(gear_type["secondary"])
-        # else: #(pick == pistol_only)
-        #    gearstring[0] = random.choice(gear_type["sidearm"])
 
-    #Refactor later
-    if not(pick == primary_secondary_pistol or pick == primary_secondary):
-        if (pick == primary_pistol or pick == secondary_pistol): #generated 2 weapons
-            if random.randint(0,1):
-                if (random.randint(1,100) <= p_nades*100):
-                    gearstring[3] = random.choice(['O']*80 + ['Q']*20) # 80% chance for HE
-            elif not gunfight_loadout_is_full(gearstring):
-                if (gunfight_can_use_laser(gearstring)):
-                    if (gunfight_can_use_silencer(gearstring)):
-                        if random.randint(0,1):
-                            gearstring[6] = 'U' #silencer
-                    elif random.randint(0,1):
-                        gearstring[6] = 'V' #laser
-                else:
-                    if random.randint(0,1):
-                        gearstring[6] = 'U'
-        else: #pick == primary_only or secondary_only or pistol_only ; generated 1 weapon
-            if (random.randint(1,100) <= p_nades*100):
-                gearstring[3] = random.choice(['O']*80 + ['Q']*20) # 80% chance for HE
+    weapstack = []
+    pistolstack = []
+    grenadestack = []
+    if pick in {primary_secondary,secondary_pistol,secondary_only,primary_secondary_pistol}:
+        weapstack += list(gear_type["secondary"])
+    if pick in {primary_secondary,primary_pistol,primary_only,primary_secondary_pistol}:
+        weapstack += list(gear_type["primary"])
+    if pick == primary_secondary:
+        weapstack.remove('c')
+    if pick in {primary_pistol,primary_secondary_pistol,pistol_only}:
+        pistolstack = list(gear_type["sidearm"])
+    if random.randint(1,100) <= p_nades*100):
+        grenadestack = list(gear_type["grenade"])
+    itemstack = list(gear_type["item"])
+    for stack in [pistolstack,weapstack,grenadestack,itemstack]: 
+        random.shuffle(stack)
 
-            if (gunfight_can_use_laser(gearstring) and not gunfight_loadout_is_full(gearstring)):
-                if (gunfight_can_use_silencer(gearstring)):
-                    if random.randint(0,1):
-                        gearstring[6] = 'U' #silencer
-                    elif random.randint(0,1):
-                        gearstring[6] = 'V' #laser
-                else:
-                    if random.randint(0,1):
-                        gearstring[6] = 'V'
+    gearstring[0] = pistolstack.pop() if len(pistolstack) else 'A' # ! always occupied
+    gearstring[1] = weapstack.pop() if len(weapstack) else 'A'
+    weapstack = [w for w in weapstack if w not in gear_type["primary"]]
+    if not gunfight_loadout_is_full(gearstring) and not pick == secondary_only:
+        gearstring[2] = weapstack.pop() if len(weapstack) else 'A'
+    if not gunfight_loadout_is_full(gearstring) or gearstring[1] == 'c':
+        gearstring[3] = grenadestack.pop() if len(grenadestack) else 'A'
+    if not gunfight_loadout_is_full(gearstring) or (gearstring[1] == 'c' and gearstring[3] == 'A'):
+        gearstring[6] = itemstack.pop() if len(itemstack) else 'A'
+    if not gunfight_can_use_silencer(gearstring) and 'U' in gearstring:
+        gearstring[gearstring.index('U')] = 'A'
+    if not gunfight_can_use_laser(gearstring) and 'V' in gearstring: 
+        gearstring[gearstring.index('V')] = 'A'
 
     return("".join(gearstring))
 
