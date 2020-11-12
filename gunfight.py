@@ -62,15 +62,15 @@ def gunfight_loadout_is_full(loadout):
         weight += 2 if slot == 'c' else 1
     return (weight >= max_weight)
 		
-def gunfight_loadout_generate(loadouts=[]):
+def gunfight_loadout_generate(loadouts=[], banned_gear=""):
 
     if loadouts != []:
         return random.choice(loadouts)
 
     gearstring = list("AAAARWA")
 
-    p_knife = 0.03
-    p_nades = 0.2
+    p_knife = 0.00
+    p_nades = 0.0
     
     p_PSPs = 0.11
     p_PS = 0.11
@@ -105,16 +105,16 @@ def gunfight_loadout_generate(loadouts=[]):
     pistolstack = []
     grenadestack = []
     if pick in {primary_secondary,secondary_pistol,secondary_only,primary_secondary_pistol}:
-        weapstack += list(gear_type["secondary"])
+        weapstack += list(filter(lambda i: i not in banned_gear, gear_type["secondary"]))
     if pick in {primary_secondary,primary_pistol,primary_only,primary_secondary_pistol}:
-        weapstack += list(gear_type["primary"])
+        weapstack += list(filter(lambda i: i not in banned_gear, gear_type["primary"]))
     if pick == primary_secondary:
         weapstack.remove('c')
     if pick in {primary_pistol,primary_secondary_pistol,pistol_only}:
-        pistolstack = list(gear_type["sidearm"])
-    if random.randint(1,100) <= p_nades*100):
-        grenadestack = list(gear_type["grenade"])
-    itemstack = list(gear_type["item"])
+        pistolstack = list(filter(lambda i: i not in banned_gear, gear_type["sidearm"]))
+    if random.randint(1,100) <= p_nades*100:
+        grenadestack = list(filter(lambda i: i not in banned_gear, gear_type["grenade"]))
+    itemstack = list(filter(lambda i: i not in banned_gear, gear_type["item"]))
     for stack in [pistolstack,weapstack,grenadestack,itemstack]: 
         random.shuffle(stack)
 
@@ -161,14 +161,14 @@ def gunfight_print_loadout(gearstring,g_gear=""):
         textlist.append("ONLY!")
     return(" ".join(textlist))
 
-def gunfight_next_loadout(current, presets, rcon):
+def gunfight_next_loadout(current, presets, rcon, banned_gear):
     g_sidearm = gear_type["sidearm"]
     g_primary = gear_type["primary"]
     g_secondary = gear_type["secondary"]
 
-    new_loadout = gunfight_loadout_generate(presets)
+    new_loadout = gunfight_loadout_generate(presets, banned_gear)
     while current == new_loadout and not len(presets) == 1:
-	    new_loadout = gunfight_loadout_generate(presets)
+	    new_loadout = gunfight_loadout_generate(presets, banned_gear)
     og_loadout = new_loadout
     new_g_gear = ""
     if new_loadout[1] == 'A':
