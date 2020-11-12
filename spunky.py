@@ -85,7 +85,7 @@ class LogParser(object):
 
         # devel.log file
         devel_log = logging.handlers.RotatingFileHandler(filename='devel.log', maxBytes=2097152, backupCount=1, encoding='utf8')
-	devel_log.setLevel(logging.INFO)
+        devel_log.setLevel(logging.INFO)
         if verbose:
 		devel_log.setLevel(logging.DEBUG)
         devel_log.setFormatter(formatter)
@@ -111,14 +111,15 @@ class LogParser(object):
         self.game = None
         self.default_gear = ''
         self.round_count = 0
-	self.blue_score = 0
-	self.red_score = 0
-	self.fraglimit = 0
-	self.use_match_point = True
-	self.match_point = False
+        self.blue_score = 0
+        self.red_score = 0
+        self.fraglimit = 0
+        self.use_match_point = True
+        self.match_point = False
         self.gunfight_old_maxrounds = 0
         self.gunfight_presets = []
         self.gunfight_loadout = ''
+        self.gunfight_banned_items = ''
         self.gunfight_loadout_rounds = 2
         self.gunfight_swapped_roles = True
         self.gunfight_maxrounds = 0
@@ -133,7 +134,8 @@ class LogParser(object):
             self.gunfight_gametype = True
 	    gunfight_presets_string = config.get('gamemode','gunfight_presets') if config.has_option('gamemode','gunfight_presets') else ""
 	    self.gunfight_presets = filter(lambda s: s is not '', gunfight_presets_string.split(','))
-            self.gunfight_loadout_rounds = config.getint('gamemode','gunfight_loadout_rounds') if config.has_option('gamemode','gunfight_loadout_rounds') else 2
+	    self.gunfight_banned_items = config.get('gamemode','gunfight_banned_items') if config.has_option('gamemode','gunfight_banned_items') else ""
+        self.gunfight_loadout_rounds = config.getint('gamemode','gunfight_loadout_rounds') if config.has_option('gamemode','gunfight_loadout_rounds') else 2
         logger.info("Configuration loaded  : OK")
         server_port = config.get('server', 'server_port') if config.has_option('server', 'server_port') else "27960"
         self.uptime = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time()))
@@ -268,7 +270,7 @@ class LogParser(object):
             self.gunfight_swapped_roles = False if 'g_swaproles\\1\\' in line else True
             if self.ts_gametype or self.bomb_gametype or self.freeze_gametype:
 	        self.game.send_rcon("set g_gear \"\"")
-                self.gunfight_loadout = gunfight_next_loadout(self.gunfight_loadout, self.gunfight_presets, self.game)
+                self.gunfight_loadout = gunfight_next_loadout(self.gunfight_loadout, self.gunfight_presets, self.game, self.gunfight_banned_items)
                 logger.debug("new_game: New GUNFIGHT Loadout! [%s]", self.gunfight_loadout)
             else:
                 self.gunfight_gametype = False
@@ -279,7 +281,7 @@ class LogParser(object):
         handle warmup
         """
         logger.debug("Warmup... %s", line)
-	self.match_point = False
+        self.match_point = False
         self.round_count = 0
 
     def handle_initround(self, _):
@@ -292,7 +294,8 @@ class LogParser(object):
             logger.debug("InitRound: GUNFIGHT Round started...")
             logger.debug("InitRound: Round number %d...", self.round_count)
 	    if self.use_match_point and self.match_point:
-		    logger.debug("MATCH POINT!")
+                logger.debug("MATCH POINT!")
+                self.game.rcon_say("^1[  MATCH POINT!  ]")
             self.game.rcon_bigtext("^2%s" % gunfight_print_loadout(self.gunfight_loadout))
 
     def handle_exit(self, line):
@@ -300,8 +303,8 @@ class LogParser(object):
         handle Exit of a match, show Awards, store user score in database and reset statistics
         """
         logger.debug("Exit: %s", line)
-	self.blue_score = 0
-	self.red_score = 0
+        self.blue_score = 0
+        self.red_score = 0
     	self.round_count = 0
         if self.gunfight_gametype:
             logger.debug("Exit: GUNFIGHT match end...")
@@ -320,16 +323,16 @@ class LogParser(object):
 	"""
 	setup matchpoint if enabled
 	"""
-	rcon_players = self.game.get_rcon_output('players')
-	teams_scores = rcon_players[1].split('\n')[3].split(' ')[-2:]
-	half_point = self.gunfight_maxrounds/2
-	self.blue_score = int(teams_scores[1].split(':')[1])
-	self.red_score = int(teams_scores[0].split(':')[1])
-	if ((self.blue_score+1 > half_point) or \
-	   (self.red_score+1 > half_point)) and not self.match_point:
-		self.match_point = True
-	if self.match_point and (self.blue_score > half_point or self.red_score > half_point):
-		self.game.send_rcon("fraglimit %s" % str(half_point))	
+        rcon_players = self.game.get_rcon_output('players')
+        teams_scores = rcon_players[1].split('\n')[3].split(' ')[-2:]
+        half_point = self.gunfight_maxrounds/2
+        self.blue_score = int(teams_scores[1].split(':')[1])
+        self.red_score = int(teams_scores[0].split(':')[1])
+        if ((self.blue_score+1 > half_point) or \
+           (self.red_score+1 > half_point)) and not self.match_point:
+            self.match_point = True
+        if self.match_point and (self.blue_score > half_point or self.red_score > half_point):
+            self.game.send_rcon("fraglimit %s" % str(half_point))	
 
     def handle_teams_ts_mode(self, line):
         """
@@ -340,10 +343,7 @@ class LogParser(object):
 	if self.use_match_point:
 		self.check_match_point()
         if self.gunfight_gametype:
-            if (not self.round_count % self.gunfight_loadout_rounds) or (not self.gunfight_swapped_roles and self.round_count == self.gunfight_maxrounds):
-                self.gunfight_loadout = gunfight_next_loadout(self.gunfight_loadout, self.gunfight_presets, self.game)
-                logger.debug("New GUNFIGHT Loadout! [%s]", self.gunfight_loadout)
-                self.game.rcon_bigtext("^2Loadout changes next round!")
+            self.gunfight_round_end()
 
     def handle_teams_ftl_mode(self, line):
         """
@@ -354,10 +354,16 @@ class LogParser(object):
 	if self.use_match_point:
 		self.check_match_point()
         if self.gunfight_gametype:
-            if (not self.round_count % self.gunfight_loadout_rounds) or (not self.gunfight_swapped_roles and self.round_count == self.gunfight_maxrounds):
-                self.gunfight_loadout = gunfight_next_loadout(self.gunfight_loadout, self.gunfight_presets, self.game)
-                logger.debug("New GUNFIGHT Loadout! [%s]", self.gunfight_loadout)
-                self.game.rcon_bigtext("^2Loadout changes next round!")
+            self.gunfight_round_end()
+
+    def gunfight_round_end(self):
+        """
+        handle gunfight loadout cycle
+        """
+        if (not self.round_count % self.gunfight_loadout_rounds) or (not self.gunfight_swapped_roles and self.round_count == self.gunfight_maxrounds):
+            self.gunfight_loadout = gunfight_next_loadout(self.gunfight_loadout, self.gunfight_presets, self.game, self.gunfight_banned_items)
+            logger.debug("New GUNFIGHT Loadout! [%s]", self.gunfight_loadout)
+            self.game.rcon_bigtext("^2Weapons change next round!")
 
 ### CLASS Game ###
 class Game(object):
@@ -389,7 +395,8 @@ class Game(object):
         # gunfight
         self.gunfight_on = self.game_cfg.has_option('gamemode','gunfight') and self.game_cfg.getboolean('gamemode','gunfight')
         gunfight_presets_string = self.game_cfg.get('gamemode','gunfight_presets') if self.game_cfg.has_option('gamemode','gunfight_presets') else ""
-	self.gunfight_presets = list(set(filter(lambda s: s is not '', gunfight_presets_string.split(','))))
+        self.gunfight_banned_items = self.game_cfg.get('gamemode','gunfight_banned_items') if self.game_cfg.has_option('gamemode','gunfight_banned_items') else ""
+        self.gunfight_presets = list(set(filter(lambda s: s is not '', gunfight_presets_string.split(','))))
 
     def thread_rcon(self):
         """
@@ -544,7 +551,7 @@ class Game(object):
         if self.get_cvar('g_gametype') in ("4","8","10","1","5"):
             if self.gunfight_on and self.get_cvar('sv_forcegear') == "":
                 logger.debug("[go_live] GUNFIGHT ENABLED")
-		gunfight_init = gunfight_next_loadout("",self.gunfight_presets,self)
+		gunfight_init = gunfight_next_loadout("",self.gunfight_presets,self, self.gunfight_banned_items)
                 logger.debug("[go_live] GUNFIGHT INIT: %s", gunfight_init)
                 logger.debug("[go_live] sv_forcegear set to [%s]", self.get_cvar('sv_forcegear'))
         else:
