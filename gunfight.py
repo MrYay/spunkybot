@@ -37,7 +37,7 @@ gear_type = collections.OrderedDict(sorted({
         "primary":"KLeMiNZac",
         "secondary":"HjhIJk",
         "sidearm":"FfgGl"
-	}.items()))
+    }.items()))
 
 def gunfight_can_use_laser(loadout):
     for e in loadout:
@@ -52,7 +52,7 @@ def gunfight_can_use_silencer(loadout):
     return False
 
 def gunfight_loadout_is_full(loadout):
-    # consider pistol slot is always occupied 
+    # consider pistol slot is always occupied
     max_weight = 4
     weight = 0
 
@@ -61,45 +61,44 @@ def gunfight_loadout_is_full(loadout):
             continue
         weight += 2 if slot == 'c' else 1
     return (weight >= max_weight)
-		
-def gunfight_loadout_generate(loadouts=[], banned_gear=""):
+
+def gunfight_loadout_generate(probs={}, loadouts=[], banned_gear=""):
 
     if loadouts != []:
         return random.choice(loadouts)
 
     gearstring = list("AAAARWA")
 
-    p_knife = 0.00
-    p_nades = 0.0
-    
-    p_PSPs = 0.11
-    p_PS = 0.11
-    p_PPs = 0.11
-    p_PO = 0.11
-    p_SPs = 0.11
-    p_SO = 0.11
-    p_PsO = 0.11
-    
+    p_knife = probs.get("p_K",0)
+    p_nades = probs.get("p_G",0)
+    p_PSPs = probs.get("p_PSPs",0)
+    p_PS = probs.get("p_PS",0)
+    p_PPs = probs.get("p_PPs",0)
+    p_PO = probs.get("p_PO",0)
+    p_SPs = probs.get("p_SPs",0)
+    p_SO = probs.get("p_SO",0)
+    p_PsO = probs.get("p_PsO",0)
+
     primary_secondary_pistol = 0
     primary_secondary = 1
     primary_pistol = 2
     primary_only = 3
     secondary_pistol = 4
-    secondary_only = 5 
+    secondary_only = 5
     pistol_only = 6
     pick = -1
 
     if not(random.randint(1,100) <= p_knife*100):
         #not knife only
         pick = random.choice(
-		  [primary_secondary_pistol] *(int)(p_PSPs*100) \
-		+ [primary_secondary]	     *(int)(p_PS*100) \
-		+ [primary_pistol]           *(int)(p_PPs*100) \
-		+ [primary_only]             *(int)(p_PO*100) \
-		+ [secondary_pistol]         *(int)(p_SPs*100) \
-		+ [secondary_only]           *(int)(p_SO*100) \
-		+ [pistol_only]              *(int)(p_PsO*100)
-	)
+          [primary_secondary_pistol] *(int)(p_PSPs*100) \
+        + [primary_secondary]	     *(int)(p_PS*100) \
+        + [primary_pistol]           *(int)(p_PPs*100) \
+        + [primary_only]             *(int)(p_PO*100) \
+        + [secondary_pistol]         *(int)(p_SPs*100) \
+        + [secondary_only]           *(int)(p_SO*100) \
+        + [pistol_only]              *(int)(p_PsO*100)
+    )
 
     weapstack = []
     pistolstack = []
@@ -115,7 +114,7 @@ def gunfight_loadout_generate(loadouts=[], banned_gear=""):
     if random.randint(1,100) <= p_nades*100:
         grenadestack = list(filter(lambda i: i not in banned_gear, gear_type["grenade"]))
     itemstack = list(filter(lambda i: i not in banned_gear, gear_type["item"]))
-    for stack in [pistolstack,weapstack,grenadestack,itemstack]: 
+    for stack in [pistolstack,weapstack,grenadestack,itemstack]:
         random.shuffle(stack)
 
     gearstring[0] = pistolstack.pop() if len(pistolstack) else 'A' # ! always occupied
@@ -129,7 +128,7 @@ def gunfight_loadout_generate(loadouts=[], banned_gear=""):
         gearstring[6] = itemstack.pop() if len(itemstack) else 'A'
     if not gunfight_can_use_silencer(gearstring) and 'U' in gearstring:
         gearstring[gearstring.index('U')] = 'A'
-    if not gunfight_can_use_laser(gearstring) and 'V' in gearstring: 
+    if not gunfight_can_use_laser(gearstring) and 'V' in gearstring:
         gearstring[gearstring.index('V')] = 'A'
 
     return("".join(gearstring))
@@ -138,17 +137,17 @@ def gunfight_print_loadout(gearstring,g_gear=""):
     textlist = []
 
     if gear_type["sidearm"] in g_gear:
-	 gl = list(gearstring)
-	 gl[0] = 'A'
-	 gearstring = "".join(gl)
+     gl = list(gearstring)
+     gl[0] = 'A'
+     gearstring = "".join(gl)
     if gear_type["primary"] in g_gear:
-	 gl = list(gearstring)
-	 gl[1] = 'A'
-	 gearstring = "".join(gl)
+     gl = list(gearstring)
+     gl[1] = 'A'
+     gearstring = "".join(gl)
     if gear_type["secondary"] in g_gear:
-	 gl = list(gearstring)
-	 gl[2] = 'A'
-	 gearstring = "".join(gl)
+     gl = list(gearstring)
+     gl[2] = 'A'
+     gearstring = "".join(gl)
 
     if gearstring[0:4].count('A') >= 3:
         textlist.append("^1")
@@ -161,14 +160,14 @@ def gunfight_print_loadout(gearstring,g_gear=""):
         textlist.append("ONLY!")
     return(" ".join(textlist))
 
-def gunfight_next_loadout(current, presets, rcon, banned_gear):
+def gunfight_next_loadout(current, presets, rcon, banned_gear, banned_loadouts=[], probs={}):
     g_sidearm = gear_type["sidearm"]
     g_primary = gear_type["primary"]
     g_secondary = gear_type["secondary"]
 
-    new_loadout = gunfight_loadout_generate(presets, banned_gear)
-    while current == new_loadout and not len(presets) == 1:
-	    new_loadout = gunfight_loadout_generate(presets, banned_gear)
+    new_loadout = gunfight_loadout_generate(probs, presets, banned_gear)
+    while (current == new_loadout or new_loadout in banned_loadouts) and not len(presets) == 1:
+        new_loadout = gunfight_loadout_generate(presets, banned_gear)
     og_loadout = new_loadout
     new_g_gear = ""
     if new_loadout[1] == 'A':
