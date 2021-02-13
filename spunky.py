@@ -108,6 +108,9 @@ class LogParser(object):
         self.freeze_gametype = False
         self.gunfight_gametype = False
         self.urt_modversion = None
+        self.mapcycle_file = ''
+        self.mapcycle_randomize = False
+        self.mapcycle_list = []
         self.game = None
         self.default_gear = ''
         self.round_count = 0
@@ -124,7 +127,11 @@ class LogParser(object):
         self.gunfight_loadouts_probs = {}
         self.gunfight_loadout_rounds = 2
         self.gunfight_swapped_roles = True
-        self.gunfight_maxrounds = 0
+
+        if config.has_option('mapcycle', 'mapcycle_file'):
+            self.mapcycle_file = config.get('mapcycle', 'mapcycle_file')
+        if config.has_option('mapcycle', 'mapcycle_randomize') and config.getboolean('mapcycle', 'mapcycle_randomize'):
+            self.mapcycle_randomize = True
 
         # Gameplay mods
         if config.has_option('gamemode','use_match_point') and config.getboolean('gamemode','use_match_point'):
@@ -272,8 +279,14 @@ class LogParser(object):
         logger.debug("InitGame: Starting game...")
         self.game.rcon_clear()
 
-        # gunfight_gametype
-        self.gunfight_maxrounds = int(self.game.get_cvar('g_maxrounds'))
+        if self.mapcycle_randomize and self.mapcycle_file:
+            current_map = line.split('mapname\\')[-1].split('\\')[
+                0] if 'mapname\\' in line else "%s" % '' if self.urt_modversion > 41 else '0'
+            if len(self.mapcycle_list) == 0:
+                self.mapcycle_refresh()
+            if current_map in self.mapcycle_list:
+                self.mapcycle_list.remove(current_map)
+            self.game.send_rcon('g_nextmap %s' % self.mapcycle_list[0])
         if self.gunfight_gametype:
             self.gunfight_swapped_roles = False if 'g_swaproles\\1\\' in line else True
             if self.ts_gametype or self.bomb_gametype or self.freeze_gametype:
@@ -283,6 +296,18 @@ class LogParser(object):
             else:
                 self.gunfight_gametype = False
                 logger.debug("GUNFIGHT disabled because of unsupported gametype")
+
+    def mapcycle_refresh(self):
+        if self.mapcycle_file:
+            try:
+                with open(self.mapcycle_file, 'r') as maps:
+                    maplist = list(set([line.strip().lower() for line in maps if (line.strip()[:2] != '//' and line.strip())]))
+                    if self.mapcycle_randomize:
+                        random.shuffle(maplist)
+                    self.mapcycle_list = maplist
+            except IOError:
+                logger.warning("WARNING: Error reading mapcycle file '%s'", self.mapcycle_file)
+                self.mapcycle_file = ''
 
     def handle_warmup(self, line):
         """
