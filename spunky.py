@@ -22,7 +22,7 @@ Modify the files '/conf/settings.conf' and '/conf/rules.conf'
 Run the bot: python spunky.py
 """
 
-__version__ = '1.11.0'
+__version__ = '1.11.fgt'
 
 
 ### IMPORTS
@@ -42,7 +42,7 @@ from lib.pyquake3 import PyQuake3
 from Queue import Queue
 from threading import Thread
 from threading import RLock
-from gunfight import *
+from gunfight import GunfightGame
 
 
 # Get an instance of a logger
@@ -87,8 +87,8 @@ class LogParser(object):
         devel_log = logging.handlers.RotatingFileHandler(filename='devel.log', maxBytes=2097152, backupCount=1, encoding='utf8')
         devel_log.setLevel(logging.INFO)
         if verbose:
-		devel_log.setLevel(logging.DEBUG)
-        devel_log.setFormatter(formatter)
+            devel_log.setLevel(logging.DEBUG)
+            devel_log.setFormatter(formatter)
 
         # add logging handler
         logger.addHandler(console)
@@ -101,6 +101,7 @@ class LogParser(object):
         games_log = config.get('server', 'log_file')
 
         self.ffa_lms_gametype = False
+        self.lms_gametype = False
         self.ctf_gametype = False
         self.ts_gametype = False
         self.tdm_gametype = False
@@ -119,14 +120,8 @@ class LogParser(object):
         self.fraglimit = 0
         self.use_match_point = True
         self.match_point = False
-        self.gunfight_old_maxrounds = 0
-        self.gunfight_presets = []
-        self.gunfight_loadout = ''
-        self.gunfight_banned_items = ''
-        self.gunfight_banned_loadouts = []
-        self.gunfight_loadouts_probs = {}
-        self.gunfight_loadout_rounds = 2
-        self.gunfight_swapped_roles = True
+        self.maxrounds = 0
+        self.gunfight_game = None
 
         if config.has_option('mapcycle', 'mapcycle_file'):
             self.mapcycle_file = config.get('mapcycle', 'mapcycle_file')
@@ -139,18 +134,20 @@ class LogParser(object):
             self.use_match_point = True
         logger.debug("Checking for GUNFIGHT variable...")
         if config.has_option('gamemode','gunfight') and config.getboolean('gamemode','gunfight'):
-            logger.debug("GUNFIGHT mode active!")
+            logger.debug("[LogParser] GUNFIGHT mode active!")
             self.gunfight_gametype = True
             gunfight_presets_string = config.get('gamemode','gunfight_presets') if config.has_option('gamemode','gunfight_presets') else ""
             gunfight_banned_loadouts_string = config.get('gamemode','gunfight_banned_loadouts') if config.has_option('gamemode','gunfight_banned_loadouts') else ""
             gunfight_loadouts_probs_string = config.get('gamemode','gunfight_loadouts_probs') if config.has_option('gamemode','gunfight_loadouts_probs') else ""
+            gunfight_loadouts_probs = {}
             for p in filter(lambda s: s is not '', gunfight_loadouts_probs_string.split(',')):
                loadout,prob = p.split(":")
-               self.gunfight_loadouts_probs[loadout] = float(prob)
-            self.gunfight_banned_loadouts = filter(lambda s: s is not '', gunfight_banned_loadouts_string.split(','))
-            self.gunfight_presets = filter(lambda s: s is not '', gunfight_presets_string.split(','))
-            self.gunfight_banned_items = config.get('gamemode','gunfight_banned_items') if config.has_option('gamemode','gunfight_banned_items') else ""
-            self.gunfight_loadout_rounds = config.getint('gamemode','gunfight_loadout_rounds') if config.has_option('gamemode','gunfight_loadout_rounds') else 2
+               gunfight_loadouts_probs[loadout] = float(prob)
+            gunfight_banned_loadouts = filter(lambda s: s is not '', gunfight_banned_loadouts_string.split(','))
+            gunfight_presets = filter(lambda s: s is not '', gunfight_presets_string.split(','))
+            gunfight_banned_items = config.get('gamemode','gunfight_banned_items') if config.has_option('gamemode','gunfight_banned_items') else ""
+            gunfight_loadout_rounds = config.getint('gamemode','gunfight_loadout_rounds') if config.has_option('gamemode','gunfight_loadout_rounds') else 2
+            self.gunfight_game = GunfightGame(gunfight_banned_items, gunfight_banned_loadouts, gunfight_presets, gunfight_loadouts_probs, gunfight_loadout_rounds)
         logger.info("Configuration loaded  : OK")
         server_port = config.get('server', 'server_port') if config.has_option('server', 'server_port') else "27960"
         self.uptime = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time()))
@@ -194,6 +191,8 @@ class LogParser(object):
                     if 'g_gametype\\0\\' in line or 'g_gametype\\1\\' in line or 'g_gametype\\9\\' in line or 'g_gametype\\11\\' in line:
                         # disable teamkill event and some commands for FFA (0), LMS (1), Jump (9), Gun (11)
                         self.ffa_lms_gametype = True
+                    elif 'g_gametype\\1\\' in line:
+                        self.lms_gametype = True
                     elif 'g_gametype\\7\\' in line:
                         self.ctf_gametype = True
                     elif 'g_gametype\\4\\' in line or 'g_gametype\\5\\' in line:
@@ -243,6 +242,15 @@ class LogParser(object):
             else:
                 if not self.game.live:
                     self.game.go_live()
+                    if self.ts_gametype or self.bomb_gametype or self.freeze_gametype or self.lms_gametype:
+                        if self.gunfight_gametype:
+                            logger.debug("[go_live] GUNFIGHT ENABLED")
+                            self.gunfight_cycle_loadout()
+                            logger.debug("[go_live] GUNFIGHT INIT: %s", self.gunfight_game.current_loadout)
+                        else:
+                            logger.debug("GUNFIGHT not initiated because of unsupported gametype")
+                            self.gunfight_gametype = False
+
                 time.sleep(.125)
 
     def parse_line(self, string):
@@ -278,6 +286,7 @@ class LogParser(object):
         self.freeze_gametype = True if 'g_gametype\\10\\' in line else False
         logger.debug("InitGame: Starting game...")
         self.game.rcon_clear()
+        self.maxrounds = int(self.game.get_cvar('g_maxrounds'))
 
         if self.mapcycle_randomize and self.mapcycle_file:
             current_map = line.split('mapname\\')[-1].split('\\')[
@@ -288,11 +297,11 @@ class LogParser(object):
                 self.mapcycle_list.remove(current_map)
             self.game.send_rcon('g_nextmap %s' % self.mapcycle_list[0])
         if self.gunfight_gametype:
-            self.gunfight_swapped_roles = False if 'g_swaproles\\1\\' in line else True
+            self.gunfight_game.swapped_roles = False if 'g_swaproles\\1\\' in line else True
             if self.ts_gametype or self.bomb_gametype or self.freeze_gametype:
                 self.game.send_rcon("set g_gear \"\"")
-                self.gunfight_loadout = gunfight_next_loadout(self.gunfight_loadout, self.gunfight_presets, self.game, self.gunfight_banned_items, self.gunfight_banned_loadouts, self.gunfight_loadouts_probs)
-                logger.debug("new_game: New GUNFIGHT Loadout! [%s]", self.gunfight_loadout)
+                self.gunfight_cycle_loadout()
+                logger.debug("new_game: New GUNFIGHT Loadout! '%s'", self.gunfight_game.current_loadout)
             else:
                 self.gunfight_gametype = False
                 logger.debug("GUNFIGHT disabled because of unsupported gametype")
@@ -326,10 +335,11 @@ class LogParser(object):
         if self.gunfight_gametype:
             logger.debug("InitRound: GUNFIGHT Round started...")
             logger.debug("InitRound: Round number %d...", self.round_count)
-	    if self.use_match_point and self.match_point:
+            logger.debug("InitRound: GUNFIGHT Loadout: %s...", self.gunfight_game.current_loadout)
+            if self.use_match_point and self.match_point:
                 logger.debug("MATCH POINT!")
                 self.game.rcon_say("^1[  MATCH POINT!  ]")
-            self.game.rcon_bigtext("^2%s" % gunfight_print_loadout(self.gunfight_loadout))
+            self.game.rcon_bigtext("^2%s" % self.gunfight_game.loadout_announcement)
 
     def handle_exit(self, line):
         """
@@ -346,11 +356,12 @@ class LogParser(object):
             self.game.send_rcon("fraglimit %s" % str(self.fraglimit))
             #if self.game.get_cvar('g_gear') != self.default_gear:
                 #self.game.send_rcon("set g_gear %s" % self.default_gear)
-        if self.gunfight_swapped_roles:
-            self.game.send_rcon("set g_gear \"\"")
-            self.game.send_rcon("set sv_forcegear \"\"")
-        if self.game.get_cvar('g_swaproles') == '1':
-            self.gunfight_swapped_roles = not self.gunfight_swapped_roles
+        if self.gunfight_gametype:
+            if self.gunfight_game.swapped_roles:
+                self.game.send_rcon("set g_gear \"\"")
+                self.game.send_rcon("set sv_forcegear \"\"")
+            if self.game.get_cvar('g_swaproles') == '1':
+                self.gunfight_game.swapped_roles = not self.gunfight_game.swapped_roles
 
     def check_match_point(self):
         """
@@ -358,7 +369,7 @@ class LogParser(object):
         """
         rcon_players = self.game.get_rcon_output('players')
         teams_scores = rcon_players[1].split('\n')[3].split(' ')[-2:]
-        half_point = self.gunfight_maxrounds/2
+        half_point = self.maxrounds / 2
         self.blue_score = int(teams_scores[1].split(':')[1])
         self.red_score = int(teams_scores[0].split(':')[1])
         if ((self.blue_score+1 > half_point) or \
@@ -393,10 +404,15 @@ class LogParser(object):
         """
         handle gunfight loadout cycle
         """
-        if (not self.round_count % self.gunfight_loadout_rounds) or (not self.gunfight_swapped_roles and self.round_count == self.gunfight_maxrounds):
-            self.gunfight_loadout = gunfight_next_loadout(self.gunfight_loadout, self.gunfight_presets, self.game, self.gunfight_banned_items, self.gunfight_banned_loadouts, self.gunfight_loadouts_probs)
-            logger.debug("New GUNFIGHT Loadout! [%s]", self.gunfight_loadout)
+        if (not self.round_count % self.gunfight_game.loadout_rounds) or (not self.gunfight_game.swapped_roles and self.round_count == self.maxrounds):
+            self.gunfight_cycle_loadout()
+            logger.debug("New GUNFIGHT Loadout! [%s]", self.gunfight_game.current_loadout)
             self.game.rcon_bigtext("^2Weapons change next round!")
+
+    def gunfight_cycle_loadout(self):
+        self.gunfight_game.loadout_cycle()
+        self.game.send_rcon("set g_gear \"%s\"" % self.gunfight_game.g_gear)
+        self.game.send_rcon("set sv_forcegear \"%s\"" % self.gunfight_game.current_loadout)
 
 ### CLASS Game ###
 class Game(object):
@@ -424,19 +440,6 @@ class Game(object):
         logger.info("Startup completed     : Let's get ready to rumble!")
         logger.info("Spunky Bot is running until you are closing this session or pressing CTRL + C to abort this process.")
         logger.info("*** Note: Use the provided initscript to run Spunky Bot as daemon ***")
-
-        # gunfight
-        self.gunfight_on = self.game_cfg.has_option('gamemode','gunfight') and self.game_cfg.getboolean('gamemode','gunfight')
-        gunfight_presets_string = self.game_cfg.get('gamemode','gunfight_presets') if self.game_cfg.has_option('gamemode','gunfight_presets') else ""
-        gunfight_banned_loadouts_string = self.game_cfg.get('gamemode','gunfight_banned_loadouts') if self.game_cfg.has_option('gamemode','gunfight_banned_loadouts') else ""
-        self.gunfight_banned_items = self.game_cfg.get('gamemode','gunfight_banned_items') if self.game_cfg.has_option('gamemode','gunfight_banned_items') else ""
-        self.gunfight_presets = list(set(filter(lambda s: s is not '', gunfight_presets_string.split(','))))
-        self.gunfight_banned_loadouts = list(set(filter(lambda s: s is not '', gunfight_banned_loadouts_string.split(','))))
-        self.gunfight_loadouts_probs = {}
-        gunfight_loadouts_probs_string = self.game_cfg.get('gamemode','gunfight_loadouts_probs') if self.game_cfg.has_option('gamemode','gunfight_loadouts_probs') else ""
-        for p in filter(lambda  s: s is not '', gunfight_loadouts_probs_string.split(',')):
-            loadout,prob = p.split(":")
-            self.gunfight_loadouts_probs[loadout] = float(prob)
 
     def thread_rcon(self):
         """
@@ -587,16 +590,6 @@ class Game(object):
         self.rcon_say("^7Powered by ^8[Spunky Bot %s] ^1[www.spunkybot.de]" % __version__)
         logger.info("Server CVAR g_logsync : %s", self.get_cvar('g_logsync'))
         logger.info("Server CVAR g_loghits : %s", self.get_cvar('g_loghits'))
-        # gunfight
-        if self.get_cvar('g_gametype') in ("4","8","10","1","5"):
-            if self.gunfight_on and self.get_cvar('sv_forcegear') == "":
-                logger.debug("[go_live] GUNFIGHT ENABLED")
-                gunfight_init = gunfight_next_loadout("",self.gunfight_presets,self, self.gunfight_banned_items, self.gunfight_banned_loadouts, self.gunfight_loadouts_probs)
-                logger.debug("[go_live] GUNFIGHT INIT: %s", gunfight_init)
-                logger.debug("[go_live] sv_forcegear set to [%s]", self.get_cvar('sv_forcegear'))
-        else:
-            logger.debug("GUNFIGHT not initiated because of unsupported gametype")
-            self.gunfight_on = False
 
     def add_player(self, player):
         """
