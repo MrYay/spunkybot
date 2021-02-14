@@ -1,51 +1,35 @@
-This README is just a quick start document. You can find more detailed documentation of Spunky Bot at [https://spunkybot.de](https://spunkybot.de).
+# What is this?
 
-# What is Spunky Bot?
+This is a lightweight server script for enabling [gunfight-like](https://callofduty.fandom.com/wiki/Gunfight#Overview) gamemode on an [Urban Terror](http://www.urbanterror.info) game server.
+Based off [Spunky Bot](https://github.com/SpunkyBot/spunkybot) stripped of its administration functions, meaning it will not react to in-game commands.
 
-**Spunky Bot** is a lightweight game server administration bot and RCON tool.
-Its purpose is to administer, manage and maintain an [Urban Terror](http://www.urbanterror.info) 4.1 / 4.2 / 4.3 server and to provide real time statistics data for players.
-Spunky Bot is a cross-platform package and offers in-game commands without authentication and automated administration even when no admin is online.
-The code of Spunky Bot is inspired by the eb2k9 bot by Shawn Haggard, which was released under the Beerware License.
+When the Gunfight modifier is enabled, every player spawns with the same loadout, generated randomly or predefined by the server admin.
+Loadouts used can change periodically, at a rate that can be configured.
+Only gamemodes with no respawn are supported (Team Survivor, Bomb Mode, Freeze Tag and Last Man Standing).
 
-[![Build Status](https://travis-ci.org/SpunkyBot/spunkybot.png)](https://travis-ci.org/SpunkyBot/spunkybot)
-[![Actions Status](https://github.com/SpunkyBot/spunkybot/workflows/CI/badge.svg)](https://github.com/SpunkyBot/spunkybot/actions)
+An Urban Terror server binary with `sv_forcegear` functionality is required. For example https://github.com/MrYay/ioq3-for-UrbanTerror-4
+
 [![License](https://img.shields.io/github/license/SpunkyBot/spunkybot)](https://github.com/SpunkyBot/spunkybot/blob/develop/LICENSE)
 [![Release](https://img.shields.io/github/v/release/SpunkyBot/spunkybot.svg?color=orange)](https://github.com/SpunkyBot/spunkybot/releases)
 [![PyPI version](https://img.shields.io/pypi/v/spunkybot.svg)](https://pypi.python.org/pypi/spunkybot)
 [![Python version](https://img.shields.io/pypi/pyversions/spunkybot?color=yellow)](https://pypi.org/project/spunkybot)
-[![GitHub Downloads](https://img.shields.io/github/downloads/SpunkyBot/spunkybot/total?color=yellowgreen)](https://github.com/SpunkyBot/spunkybot/releases)
-
-If you want to know more, this is a list of selected starting points:
-
-* Introduction to [Spunky Bot](https://spunkybot.de)
-* The full list of [commands](https://spunkybot.de/docs/commands)
-* There is much more inside the [official documentation](https://docs.spunkybot.de)
 
 ## Features
 
-* Lightweight and fast
-* Real time game statistics
-* Different user groups and levels
-* Supports all RCON commands
-* Supports temporary and permanent bans of players
-* Supports rotation messages
-* Stores all player related information in a SQLite database
-* Runs 'out of the box', no other software requirements
+* Gunfight gamemode modification with fully randomized loadouts or presets
+* Match point system
+* Randomized mapcycle
 
 ## Environment
 
 * Urban Terror 4.1.1 / 4.2.023 / 4.3.4
 * Python 2.6 / 2.7
-* SQLite 3 database
 * Cross-platform (tested on Debian 6 / 7 / 8 / 9, Ubuntu 12 / 14 / 16 / 18, CentOS 6 / 7, macOS 10.13, Windows 7 / 10)
 * Supporting 32-bit and 64-bit operating systems
 
 ## Quickstart
 
-It's easy to get started with Spunky Bot:
-
-* Download the [latest release](https://spunkybot.de/download)
-* Read our [quickstart guide](https://spunkybot.de/docs/start) to get up and running
+The setup is similar to [Spunky Bot quickstart instructions](https://github.com/SpunkyBot/spunkybot#quickstart) without the `!iamgod` command
 
 ### Configuration
 
@@ -53,78 +37,42 @@ It's easy to get started with Spunky Bot:
 
 ```
 seta g_logsync "1"
-seta g_loghits "1"
-seta g_friendlyfire "2"
 ```
 
 * Restart your Urban Terror server
-* Modify the Spunky Bot configuration file `/conf/settings.conf` and set game server port and RCON password
-* In-game displayed rules/advertisements are contained in the file `/conf/rules.conf`
-* If you do not want to display the rotation messages, set the value `show_rules=0` in the config file `/conf/settings.conf`
+* Modify the configuration file `/conf/settings.conf` and set game server port and RCON password
 * Run the application manually: `python spunky.py`
 * Or use the provided systemd or sysVinit script to run Spunky Bot as daemon
 
-**_First start instruction:_**
+### Game modifiers
+The game modifiers can be enabled by editing `/conf/settings.conf` before running the bot.
 
-* Connect to your game server and type `!iamgod` in the global chat to get the admin level "Head Admin". This command is only once available.
+Under the `[gamemode]` section:
+#### Gunfight
+* set `gunfight = 1` to enable gunfight mode
+* set `gunfight_presets` to a comma-separated list of loadouts if you want to use [predefined loadouts](https://www.urbanterror.info/support/120-gears/#D). If this option is not set, loadouts are generated on the fly.
+* set `gunfight_banned_items` to a string containing [gear](https://www.urbanterror.info/support/120-gears/#C) you do not want to appear in loadouts
+* set `gunfight_banned_loadouts` to a comma-separated list of loadouts you want to prevent from being generated.
+* set `gunfight_loadout_rounds` to the number of rounds to play before a new loadout is generated. Default is `2`
+* set `gunfight_loadout_probs` to a comma-separated list of probabilities for each loadout type to be generated, in the format `<type>:<probability>`. 
+loadout types can be the following:
+  
+`p_K` knife only, `p_G` grenade only, `p_PSPs` primary+secondary+pistol, `p_PS` primary+secondary (no pistol),
+`p_PPs` primary+pistol, `p_PO` primary only, `p_SPs` secondary+pistol, `p_SO` secondary only, `p_PsO` pistol only
 
-## Documentation
+for example, to have all loadout types generated with equal probabilities except for grenade and knife only: `p_K:0,p_G:0.11,p_PSPs:0.11,p_PS:0.11,p_PPs:0.11,p_PO:0.11,p_SPs:0.11,p_SO:0.11,p_PsO:0.11`
 
-You can find all details in the latest [documentation](https://docs.spunkybot.de).
+#### Match Point system
+* set `use_match_point = 1` to enable the match point system. If enabled, the match ends as soon as a team's score reaches more than half the value of `g_maxrounds`
 
-### Bot Commands
-
-The description of all available [commands](https://github.com/SpunkyBot/spunkybot/blob/develop/doc/Commands.md) as well as the admin levels and rights is located under the subfolder `/doc`.
-
-## Resources
-
-* [Documentation](https://docs.spunkybot.de)
-* [Bug Tracker](https://github.com/SpunkyBot/spunkybot/issues)
-* [Mailing List](https://groups.google.com/group/spunkybot)
-* [Source Code](https://github.com/SpunkyBot/spunkybot)
-* [Homepage](https://spunkybot.de)
-
-## Changelog
-
-You can keep up-to-date with the changes that we have made via our [releases page](https://github.com/Spunkybot/spunkybot/releases).
-
-## Versioning
-
-Spunky Bot is currently maintained under the [Semantic Versioning](http://semver.org) guidelines. Releases will be numbered with the following format: `<major>.<minor>.<patch>`
-
-## Additional Information
-
-For additional information, visit the Spunky Bot website at [https://www.spunkybot.de](https://www.spunkybot.de).
-
-If you have any questions about Spunky Bot or need help, please use the [mailing list](https://groups.google.com/group/spunkybot).
-
-* Joining the mailing list:
-  * Send an email to <mailto:spunkybot+subscribe@googlegroups.com>
-  * or subscribe via web: [https://groups.google.com/forum/#!forum/spunkybot/join](https://groups.google.com/forum/#!forum/spunkybot/join)
-* Leaving the mailing list:
-  * Send an email to <mailto:spunkybot+unsubscribe@googlegroups.com>
-  * or unsubscribe via web: [https://groups.google.com/forum/#!forum/spunkybot/unsubscribe](https://groups.google.com/forum/#!forum/spunkybot/unsubscribe)
-* If you joined the group, you can post to this group:
-  * Send an email to spunkybot@googlegroups.com
-
-If you have bug reports or feature suggestions, please use the [issue tracker](https://github.com/SpunkyBot/spunkybot/issues?state=open).
+#### Randomized mapcycle
+Under the `[mapcycle]` section:
+* set `mapcycle_file` to the path of your server's mapcycle, for example `/home/urt/server/q3ut4/mapcycle.txt`
+* set `mapcycle_randomize = 1` to enable mapcycle randomization. If enabled, the ordering of the maps in the mapcycle will be randomly shuffled.
 
 ## Contributing
 
-You can help us in different ways:
-
-* Open an [issue](https://github.com/SpunkyBot/spunkybot/issues) with suggestions for improvements
-* Fork this repository and submit a pull request:
-  * Click the Fork button to create your personal fork
-  * Create your feature branch (`git checkout -b new-feature`)
-  * Commit your changes (`git commit -am 'Add some feature'`)
-  * Push to the branch (`git push origin new-feature`)
-  * Create a new pull request
-* Improve the [documentation](https://github.com/SpunkyBot/spunkybot-docs) (separate repository)
-
 By contributing code to this project in any form, including sending a pull request via GitHub, a code fragment or patch via mail or public discussion groups, you agree to release your code under the terms of the MIT license that you can find in the [LICENSE](https://github.com/SpunkyBot/spunkybot/blob/develop/LICENSE) file included in this source distribution.
-
-Please see the [CONTRIBUTING](https://github.com/SpunkyBot/spunkybot/blob/develop/.github/CONTRIBUTING.md) guide for information regarding the contribution process.
 
 ## License
 
@@ -142,7 +90,3 @@ The code of Spunky Bot is released under the MIT License. See the [LICENSE](http
   * This file is released under the MIT License.
 
 Urban Terror® and FrozenSand™ are trademarks, or registered trademarks of Frozensand Games Limited.
-
-## Thank you!
-
-We really appreciate all kinds of feedback and contributions. Thanks for using and supporting Spunky Bot!
