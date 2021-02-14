@@ -60,7 +60,7 @@ loadout types can be the following:
 `p_K` knife only, `p_G` grenade only, `p_PSPs` primary+secondary+pistol, `p_PS` primary+secondary (no pistol),
 `p_PPs` primary+pistol, `p_PO` primary only, `p_SPs` secondary+pistol, `p_SO` secondary only, `p_PsO` pistol only
 
-for example, to have all loadout types generated with equal probabilities except for grenade and knife only: `p_K:0,p_G:0.11,p_PSPs:0.11,p_PS:0.11,p_PPs:0.11,p_PO:0.11,p_SPs:0.11,p_SO:0.11,p_PsO:0.11`
+for example, to have all loadout types generated with equal probabilities except for knife only: `p_K:0,p_G:0.11,p_PSPs:0.11,p_PS:0.11,p_PPs:0.11,p_PO:0.11,p_SPs:0.11,p_SO:0.11,p_PsO:0.11`
 
 #### Match Point system
 * set `use_match_point = 1` to enable the match point system. If enabled, the match ends as soon as a team's score reaches more than half the value of `g_maxrounds`
