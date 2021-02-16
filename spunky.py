@@ -242,6 +242,7 @@ class LogParser(object):
             else:
                 if not self.game.live:
                     self.game.go_live()
+                    self.maxrounds = int(self.game.get_cvar('g_maxrounds'))
                     if self.ts_gametype or self.bomb_gametype or self.freeze_gametype or self.lms_gametype:
                         if self.gunfight_gametype:
                             logger.debug("[go_live] GUNFIGHT ENABLED")
