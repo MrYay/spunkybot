@@ -311,7 +311,10 @@ class LogParser(object):
         if self.mapcycle_file:
             try:
                 with open(self.mapcycle_file, 'r') as maps:
-                    maplist = list(set([line.strip().lower() for line in maps if (line.strip()[:2] != '//' and line.strip())]))
+                    maplist = []
+                    for line in maps:
+                        if (line.strip()[:2] not in ["//", "{", "}"]) and line.strip() and len(line.split(" ")) < 2:
+                            maplist.append(line.strip().lower())
                     if self.mapcycle_randomize:
                         random.shuffle(maplist)
                     self.mapcycle_list = maplist
